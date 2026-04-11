@@ -19,8 +19,36 @@ class Agent {
     if (_initialized) return;
     _initialized = true;
 
-    registerServiceExtension('ext.slipstream.ping', _ping);
-    registerServiceExtension('ext.slipstream.echo', _echo);
+    registerServiceExtension(
+      ServiceDescription(
+        name: 'ext.slipstream.ping',
+        description: 'Checks the status of the Slipstream agent.',
+        returns: 'A status object.',
+      ),
+      _ping,
+    );
+
+    registerServiceExtension(
+      ServiceDescription(
+        name: 'ext.slipstream.echo',
+        description: 'Echoes back a message.',
+        parameters: [
+          ParameterDescription(
+            name: 'message',
+            type: 'String',
+            description: 'The message to echo.',
+            required: true,
+          ),
+          ParameterDescription(
+            name: 'name',
+            type: 'String',
+            description: 'An optional name to include.',
+          ),
+        ],
+        returns: 'The echoed message.',
+      ),
+      _echo,
+    );
   }
 
   Future<Map<String, Object?>> _ping(ExtensionParameters parameters) async {

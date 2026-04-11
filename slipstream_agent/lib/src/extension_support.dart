@@ -1,14 +1,23 @@
 import 'dart:convert' show jsonEncode;
 import 'dart:developer';
 
+final List<ServiceDescription> _registeredExtensions = [];
+
+/// Return a list of all registered service extensions.
+List<ServiceDescription> get registeredExtensions =>
+    List.unmodifiable(_registeredExtensions);
+
+/// Register a service extension.
 void registerServiceExtension(
-  String name,
+  ServiceDescription description,
   Future<Object?> Function(ExtensionParameters parameters) handler,
 ) {
-  registerExtension(name, (method, parameters) async {
+  _registeredExtensions.add(description);
+
+  registerExtension(description.name, (method, parameters) async {
     try {
       final result =
-          await handler(ExtensionParameters(parameters, method: name));
+          await handler(ExtensionParameters(parameters, method: method));
       return ServiceExtensionResponse.result(jsonEncode(result));
     } on ServiceExtensionResponse catch (e) {
       if (e.isError()) {
@@ -30,8 +39,48 @@ void registerServiceExtension(
 
 // API description related
 
+/// A description of a service extension.
 class ServiceDescription {
-  // todo:
+  /// The name of the service extension (e.g. `ext.slipstream.ping`).
+  final String name;
+
+  /// A description of the service extension.
+  final String description;
+
+  /// A description of the return value.
+  final String? returns;
+
+  /// The parameters supported by the service extension.
+  final List<ParameterDescription> parameters;
+
+  ServiceDescription({
+    required this.name,
+    required this.description,
+    this.returns,
+    this.parameters = const [],
+  });
+}
+
+/// A description of a service extension parameter.
+class ParameterDescription {
+  /// The name of the parameter.
+  final String name;
+
+  /// The type of the parameter (e.g. `String`, `int`, `bool`).
+  final String type;
+
+  /// A description of the parameter.
+  final String description;
+
+  /// Whether the parameter is required.
+  final bool required;
+
+  ParameterDescription({
+    required this.name,
+    required this.type,
+    required this.description,
+    this.required = false,
+  });
 }
 
 // dispatch related
