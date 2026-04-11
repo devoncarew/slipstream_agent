@@ -12,6 +12,9 @@ void registerServiceExtension(
   ServiceDescription description,
   Future<Object?> Function(ExtensionParameters parameters) handler,
 ) {
+  // Bootstrap the discovery mechanism.
+  _registerDiscoveryExtension();
+
   _registeredExtensions.add(description);
 
   registerExtension(description.name, (method, parameters) async {
@@ -37,6 +40,27 @@ void registerServiceExtension(
   });
 }
 
+bool _discoveryRegistered = false;
+
+/// Register a service extension that returns all available service extensions
+/// and their metadata.
+void _registerDiscoveryExtension() {
+  if (_discoveryRegistered) return;
+  _discoveryRegistered = true;
+
+  registerServiceExtension(
+    ServiceDescription(
+      name: 'ext.slipstream.listExtensions',
+      description:
+          'Returns all available service extensions and their metadata.',
+      returns: 'A JSON-encoded list of service extension descriptions.',
+    ),
+    (parameters) async {
+      return registeredExtensions.map((e) => e.toJson()).toList();
+    },
+  );
+}
+
 // API description related
 
 /// A description of a service extension.
@@ -48,6 +72,8 @@ class ServiceDescription {
   final String description;
 
   /// A description of the return value.
+  ///
+  /// A null value here implies no return result / 'void'.
   final String? returns;
 
   /// The parameters supported by the service extension.
@@ -59,6 +85,15 @@ class ServiceDescription {
     this.returns,
     this.parameters = const [],
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'description': description,
+      if (returns != null) 'returns': returns,
+      'parameters': parameters.map((p) => p.toJson()).toList(),
+    };
+  }
 }
 
 /// A description of a service extension parameter.
@@ -81,6 +116,15 @@ class ParameterDescription {
     required this.description,
     this.required = false,
   });
+
+  Map<String, dynamic> toJson() {
+    return {
+      'name': name,
+      'type': type,
+      'description': description,
+      'required': required,
+    };
+  }
 }
 
 // dispatch related

@@ -1,8 +1,9 @@
+import 'dart:developer' as dev;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:slipstream_agent/slipstream_agent.dart';
 import 'package:slipstream_agent/src/extension_support.dart';
-import 'dart:developer' as dev;
 
 void main() {
   group('SlipstreamAgent', () {
@@ -20,14 +21,47 @@ void main() {
   });
 
   group('ExtensionParameters', () {
+    test('asString', () {
+      final params = ExtensionParameters({'foo': 'bar'}, method: 'test');
+      expect(params.asString('foo'), 'bar');
+      expect(params.asString('baz'), isNull);
+    });
+
+    test('asStringRequired', () {
+      final params = ExtensionParameters({'foo': 'bar'}, method: 'test');
+      expect(params.asStringRequired('foo'), 'bar');
+      expect(() => params.asStringRequired('baz'),
+          throwsA(isA<dev.ServiceExtensionResponse>()));
+    });
+
+    test('asBool', () {
+      final params =
+          ExtensionParameters({'foo': 'true', 'bar': 'false'}, method: 'test');
+      expect(params.asBool('foo'), isTrue);
+      expect(params.asBool('bar'), isFalse);
+      expect(params.asBool('baz'), isNull);
+
+      final badParams =
+          ExtensionParameters({'foo': 'not-a-bool'}, method: 'test');
+      expect(() => badParams.asBool('foo'),
+          throwsA(isA<dev.ServiceExtensionResponse>()));
+    });
+
+    test('asBoolRequired', () {
+      final params = ExtensionParameters({'foo': 'true'}, method: 'test');
+      expect(params.asBoolRequired('foo'), isTrue);
+      expect(() => params.asBoolRequired('baz'),
+          throwsA(isA<dev.ServiceExtensionResponse>()));
+    });
+
     test('asInt', () {
       final params = ExtensionParameters({'foo': '123'}, method: 'test');
       expect(params.asInt('foo'), 123);
       expect(params.asInt('bar'), isNull);
 
       final badParams = ExtensionParameters({'foo': 'abc'}, method: 'test');
-      expect(() =>
-          badParams.asInt('foo'), throwsA(isA<dev.ServiceExtensionResponse>()));
+      expect(() => badParams.asInt('foo'),
+          throwsA(isA<dev.ServiceExtensionResponse>()));
     });
 
     test('asIntRequired', () {
@@ -65,6 +99,15 @@ void main() {
       expect(echo.parameters, hasLength(2));
       expect(echo.parameters[0].name, 'message');
       expect(echo.parameters[0].required, isTrue);
+
+      final listExtensions = registeredExtensions
+          .firstWhere((e) => e.name == 'ext.slipstream.listExtensions');
+      expect(listExtensions.description, contains('metadata'));
+
+      // Check toJson output
+      final json = listExtensions.toJson();
+      expect(json['name'], 'ext.slipstream.listExtensions');
+      expect(json['description'], contains('metadata'));
     });
   });
 }
