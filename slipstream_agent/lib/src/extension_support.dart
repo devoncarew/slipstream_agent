@@ -88,8 +88,69 @@ class ExtensionParameters {
     return result;
   }
 
-  // todo: support int
-  // todo: support double
+  /// Return the named parameter as an `int?`.
+  ///
+  /// This will throw if the parameter can't be converted to an `int?`.
+  int? asInt(String name) {
+    if (parameters.containsKey(name)) {
+      final result = int.tryParse(parameters[name]!);
+      if (result == null) {
+        throw _badType(name, 'int');
+      }
+      return result;
+    } else {
+      return null;
+    }
+  }
+
+  /// Return the named parameter as an `int`.
+  ///
+  /// This will throw a [ServiceExtensionResponse] if the parameter is missing
+  /// or if it can't be converted to an `int`.
+  int asIntRequired(String name) {
+    if (!parameters.containsKey(name)) {
+      throw _missing(name);
+    }
+
+    final result = int.tryParse(parameters[name]!);
+    if (result == null) {
+      throw _badType(name, 'int');
+    }
+
+    return result;
+  }
+
+  /// Return the named parameter as a `double?`.
+  ///
+  /// This will throw if the parameter can't be converted to a `double?`.
+  double? asDouble(String name) {
+    if (parameters.containsKey(name)) {
+      final result = double.tryParse(parameters[name]!);
+      if (result == null) {
+        throw _badType(name, 'double');
+      }
+      return result;
+    } else {
+      return null;
+    }
+  }
+
+  /// Return the named parameter as a `double`.
+  ///
+  /// This will throw a [ServiceExtensionResponse] if the parameter is missing
+  /// or if it can't be converted to a `double`.
+  double asDoubleRequired(String name) {
+    if (!parameters.containsKey(name)) {
+      throw _missing(name);
+    }
+
+    final result = double.tryParse(parameters[name]!);
+    if (result == null) {
+      throw _badType(name, 'double');
+    }
+
+    return result;
+  }
 
   ServiceExtensionResponse _missing(String name) {
     return ServiceExtensionResponse.error(
