@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:slipstream_agent/src/extension_support.dart';
+import 'package:service_extensions/service_extensions.dart';
 
 /// The internal implementation of the Slipstream agent.
 class Agent {
@@ -51,7 +51,8 @@ class Agent {
     );
   }
 
-  Future<Map<String, Object?>> _ping(ExtensionParameters parameters) async {
+  Future<Map<String, Object?>> _ping(
+      ServiceExtensionParameters parameters) async {
     return {
       'status': 'ok',
       'version': '0.1.0',
@@ -59,7 +60,7 @@ class Agent {
     };
   }
 
-  Future<String> _echo(ExtensionParameters parameters) async {
+  Future<String> _echo(ServiceExtensionParameters parameters) async {
     final message = parameters.asStringRequired('message');
     final name = parameters.asString('name');
 

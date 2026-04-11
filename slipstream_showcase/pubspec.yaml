@@ -1,0 +1,22 @@
+name: slipstream_showcase
+description: >-
+  Sample Flutter app used to test flutter-slipstream and slipstream_agent.
+publish_to: none
+environment:
+  sdk: ^3.10.0
+  flutter: ">=3.38.0"
+
+dependencies:
+  collection: ^1.19.0
+  flutter:
+    sdk: flutter
+  go_router: ^17.2.0
+  provider: ^6.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
