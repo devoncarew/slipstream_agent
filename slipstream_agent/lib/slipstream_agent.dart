@@ -1,8 +1,16 @@
-/// Support for doing something awesome.
-///
-/// More dartdocs go here.
-library;
+import 'package:flutter/foundation.dart';
+import 'src/agent.dart';
 
-export 'src/slipstream_agent_base.dart';
-
-// TODO: Export any libraries intended for clients of this package.
+/// The entry point for the Slipstream companion agent.
+class SlipstreamAgent {
+  /// Initialize the Slipstream agent.
+  ///
+  /// This registers VM service extensions that allow the Slipstream MCP server
+  /// to interact more deeply with the running app.
+  ///
+  /// This is a no-op if [kDebugMode] is false.
+  static void init() {
+    if (!kDebugMode) return;
+    Agent.instance.initialize();
+  }
+}

@@ -1,15 +1,16 @@
 name: slipstream_agent
-description: A starting point for Dart libraries or applications.
-version: 1.0.0
-# repository: https://github.com/my_org/my_repo
+description: In-process companion for Slipstream Flutter agent tools.
+version: 0.1.0
 
 environment:
-  sdk: ^3.11.4
+  sdk: ^3.3.0
+  flutter: ">=3.38.0"
 
-# Add regular dependencies here.
 dependencies:
-  # path: ^1.9.0
+  flutter:
+    sdk: flutter
 
 dev_dependencies:
-  lints: ^6.0.0
-  test: ^1.25.6
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0

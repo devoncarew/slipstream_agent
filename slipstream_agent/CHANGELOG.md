@@ -1,3 +1,4 @@
-## 1.0.0
+## 0.1.0
 
-- Initial version.
+- Initial version with `SlipstreamAgent.init()`.
+- Added the `ext.slipstream.ping` service extension for discovery.

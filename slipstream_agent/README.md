@@ -1,39 +1,38 @@
-<!-- 
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
+# slipstream_agent
 
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/tools/pub/writing-package-pages). 
+An in-process companion package for the [Slipstream Flutter agent tools](https://github.com/devoncarew/flutter-agent-tools).
 
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/to/develop-packages). 
--->
-
-TODO: Put a short description of the package here that helps potential users
-know whether this package might be useful for them.
+`slipstream_agent` is an optional, opt-in `dev_dependency` that upgrades the connection between the Slipstream MCP server and your running app from external observation to internal cooperation.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
+- **Advanced UI Finders:** Target widgets by `Key`, `Type`, or `Text` without needing explicit `Semantics` annotations.
+- **Scroll Support:** Programmatically scroll off-screen content into view.
+- **Unified Routing:** Provides a uniform interface for programmatic navigation across different routing libraries.
+- **Ghost Overlay:** Gives visual feedback in the app showing exactly what the agent is currently targeting.
 
 ## Getting started
 
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+Add `slipstream_agent` as a development dependency:
+
+```bash
+flutter pub add dev:slipstream_agent
+```
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder. 
+Initialize the agent in your `main()` function. The initialization is a no-op when the app is not in debug mode (`kDebugMode`).
 
 ```dart
-const like = 'sample';
+import 'package:flutter/material.dart';
+import 'package:slipstream_agent/slipstream_agent.dart';
+
+void main() {
+  // Initialize the Slipstream agent.
+  SlipstreamAgent.init();
+
+  runApp(const MyApp());
+}
 ```
 
-## Additional information
-
-TODO: Tell users more about the package: where to find more information, how to 
-contribute to the package, how to file issues, what response they can expect 
-from the package authors, and more.
+The Slipstream MCP server will automatically detect the presence of the agent and use it to provide enhanced capabilities and reliability.
