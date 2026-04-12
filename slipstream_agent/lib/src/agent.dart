@@ -39,7 +39,7 @@ class Agent {
 
     registerServiceExtension(
       ServiceDescription(
-        name: 'ext.slipstream.interact',
+        name: 'ext.slipstream.perform_action',
         description:
             'Performs a UI action (tap, set_text) on a widget located by a '
             'finder (byKey, byType, byText, bySemanticsLabel).',

@@ -34,7 +34,7 @@ and exposes it as `session.companionVersion`.
 
 ---
 
-## `ext.slipstream.interact`
+## `ext.slipstream.perform_action`
 
 Performs a UI action on a widget located by a finder. Replaces the
 semantics-tree evaluate path for tap and set_text when the companion is
