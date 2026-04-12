@@ -1,10 +1,10 @@
 # slipstream_showcase
 
 A sample Flutter app used for integration testing of the
-[flutter-slipstream](https://github.com/devoncarew/flutter-agent-tools)
-MCP plugin. The app is themed as a "Stellar Catalog" — a lightweight
-astronomy browser — to make it feel like a real application rather than
-a bare widget demo.
+[flutter-slipstream](https://github.com/devoncarew/flutter-agent-tools) MCP
+plugin. The app is themed as a "Stellar Catalog" — a lightweight astronomy
+browser — to make it feel like a real application rather than a bare widget
+demo.
 
 ## Running the app
 
@@ -17,12 +17,12 @@ flutter run -d macos
 
 All routes are go_router paths and can be targeted with the `navigate` tool.
 
-| Path | Screen | Notes |
-|---|---|---|
-| `/discover` | `DiscoverPage` | Scrollable list of stellar objects |
+| Path                    | Screen               | Notes                                                                                |
+| ----------------------- | -------------------- | ------------------------------------------------------------------------------------ |
+| `/discover`             | `DiscoverPage`       | Scrollable list of stellar objects                                                   |
 | `/discover/{object_id}` | `DiscoverDetailPage` | Detail view; renders over the shell (no bottom nav). Example: `/discover/betelgeuse` |
-| `/widgets` | `WidgetsPage` | Interactive widget showcase |
-| `/events` | `EventsPage` | Debug-output and fault-simulation triggers |
+| `/widgets`              | `WidgetsPage`        | Interactive widget showcase                                                          |
+| `/events`               | `EventsPage`         | Debug-output and fault-simulation triggers                                           |
 
 Object IDs are the object name lowercased with spaces replaced by underscores:
 `betelgeuse`, `sirius`, `andromeda`, `orion_nebula`, `proxima_centauri`,
@@ -55,8 +55,8 @@ Object IDs are the object name lowercased with spaces replaced by underscores:
 
 - `tap` → "Call print" — emits a timestamped line via `dart:core` `print`
 - `tap` → "Print to stdout" — emits via `dart:io` `stdout` (macOS/Linux only)
-- `tap` → "RenderFlex overflow" — pushes a page with a real overflow error;
-  use `inspect_layout` to examine the constrained `Column`
+- `tap` → "RenderFlex overflow" — pushes a page with a real overflow error; use
+  `inspect_layout` to examine the constrained `Column`
 - `tap` → "Unbounded viewport height" — button on the sub-page calls
   `FlutterError.reportError` with a simulated unbounded-height error (the real
   layout would make the page non-interactive, so this is synthesized)
