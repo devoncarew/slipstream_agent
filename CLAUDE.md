@@ -48,6 +48,20 @@ using `registerServiceExtension()` from `package:service_extensions`.
 See `slipstream_agent/docs/service_extensions.md` for the full parameter and
 return-value spec for each extension.
 
+## Telemetry Events
+
+In addition to request/response extensions, the agent posts events to the VM
+service `Extension` stream via `dart:developer.postEvent`. Clients subscribe
+with `streamListen('Extension')` and filter by `event.extensionKind`.
+
+| Event | Trigger | Source |
+| ----- | ------- | ------ |
+| `ext.slipstream.windowResized` | Window/display metrics change | `WidgetsBindingObserver.didChangeMetrics` |
+
+Telemetry is initialized automatically by `Agent.initialize()` via
+`initTelemetry()` in `lib/src/telemetry.dart`. New events go in that file;
+register the observer hook there and document in `service_extensions.md`.
+
 ## Adding a New Extension
 
 1. Add a `ServiceDescription` field and a handler method to `Agent` in
