@@ -27,8 +27,7 @@ import 'package:flutter/rendering.dart';
   final entries = <_Entry>[];
   _collect(root, Matrix4.identity(), entries);
 
-  final nodes =
-      entries.where(_hasContent).map(_toMap).toList(growable: false);
+  final nodes = entries.where(_hasContent).map(_toMap).toList(growable: false);
   return (nodes, null);
 }
 
@@ -65,7 +64,8 @@ void _collect(
       ? (localToScreen.clone()..multiply(nodeTransform))
       : localToScreen;
 
-  out.add(_Entry(node, data, MatrixUtils.transformRect(childLocalToScreen, node.rect)));
+  out.add(_Entry(
+      node, data, MatrixUtils.transformRect(childLocalToScreen, node.rect)));
 
   if (!node.mergeAllDescendantsIntoThisNode) {
     node.visitChildren((child) {
@@ -84,8 +84,9 @@ Map<String, Object?> _toMap(_Entry e) {
   final d = e.data;
   final f = d.flagsCollection;
 
-  final bool? checked =
-      f.isChecked == CheckedState.none ? null : f.isChecked == CheckedState.isTrue;
+  final bool? checked = f.isChecked == CheckedState.none
+      ? null
+      : f.isChecked == CheckedState.isTrue;
   final bool? toggled =
       f.isToggled == Tristate.none ? null : f.isToggled == Tristate.isTrue;
   final bool? selected =
