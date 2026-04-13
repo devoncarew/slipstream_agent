@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:service_extensions/service_extensions.dart';
 
@@ -46,6 +47,11 @@ class Agent {
     registerServiceExtension(
       _interactDescription,
       _interactExtension,
+    );
+
+    registerServiceExtension(
+      _enableSemanticsDescription,
+      _enableSemanticsExtension,
     );
   }
 
@@ -282,5 +288,18 @@ class Agent {
     return {
       'version': '0.1.0',
     };
+  }
+
+  final ServiceDescription _enableSemanticsDescription = ServiceDescription(
+    name: 'ext.slipstream.enable_semantics',
+    description: 'Enables the Flutter semantics tree and schedules a frame to '
+        'ensure it is populated.',
+  );
+
+  Future<Map<String, Object?>> _enableSemanticsExtension(
+      ExtensionParameters parameters) async {
+    RendererBinding.instance.ensureSemantics();
+    WidgetsBinding.instance.scheduleFrame();
+    return {};
   }
 }

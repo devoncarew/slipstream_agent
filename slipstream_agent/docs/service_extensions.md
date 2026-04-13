@@ -127,3 +127,15 @@ or
 The router adapter is registered via `SlipstreamAgent.init(router: ...)`. See
 the design doc (`slipstream_agent_design.md`) for the `RouterAdapter` interface
 and available adapters.
+
+---
+
+## `ext.slipstream.enable_semantics`
+
+Enables the Flutter semantics tree and schedules a frame to ensure it is
+populated. Call this before any operation that relies on semantics labels (e.g.
+`bySemanticsLabel` finders or accessibility assertions).
+
+**Parameters:** none
+
+**Returns:** none
