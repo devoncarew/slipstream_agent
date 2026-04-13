@@ -43,7 +43,14 @@ String? setTextInElement(Element element, String text) {
     return 'set_text: no EditableText found in element subtree';
   }
 
+  final String previous = state.widget.controller.text;
   state.widget.controller.text = text;
+  // Mirror the framework's _formatAndSetValue behaviour: fire onChanged when
+  // the text actually changed.  (TextInputFormatters are intentionally skipped
+  // since we bypass the input pipeline.)
+  if (text != previous) {
+    state.widget.onChanged?.call(text);
+  }
   return null;
 }
 
