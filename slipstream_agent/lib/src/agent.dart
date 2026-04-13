@@ -8,6 +8,7 @@ import 'actions.dart';
 import 'finder.dart';
 import 'router_adapter.dart';
 import 'semantics.dart';
+import 'telemetry.dart';
 
 /// The internal implementation of the Slipstream agent.
 class Agent {
@@ -59,6 +60,8 @@ class Agent {
       _getSemanticsDescription,
       _getSemanticsExtension,
     );
+
+    initTelemetry();
   }
 
   final ServiceDescription _interactDescription = ServiceDescription(
