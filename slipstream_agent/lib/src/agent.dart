@@ -1,11 +1,13 @@
 import 'dart:async';
 
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:service_extensions/service_extensions.dart';
 
 import 'actions.dart';
 import 'finder.dart';
 import 'router_adapter.dart';
+import 'semantics.dart';
 
 /// The internal implementation of the Slipstream agent.
 class Agent {
@@ -46,6 +48,16 @@ class Agent {
     registerServiceExtension(
       _interactDescription,
       _interactExtension,
+    );
+
+    registerServiceExtension(
+      _enableSemanticsDescription,
+      _enableSemanticsExtension,
+    );
+
+    registerServiceExtension(
+      _getSemanticsDescription,
+      _getSemanticsExtension,
     );
   }
 
@@ -282,5 +294,51 @@ class Agent {
     return {
       'version': '0.1.0',
     };
+  }
+
+  final ServiceDescription _enableSemanticsDescription = ServiceDescription(
+    name: 'ext.slipstream.enable_semantics',
+    description: 'Enables the Flutter semantics tree and schedules a frame to '
+        'ensure it is populated.',
+  );
+
+  Future<Map<String, Object?>> _enableSemanticsExtension(
+      ExtensionParameters parameters) async {
+    RendererBinding.instance.ensureSemantics();
+    WidgetsBinding.instance.scheduleFrame();
+    return {};
+  }
+
+  final ServiceDescription _getSemanticsDescription = ServiceDescription(
+    name: 'ext.slipstream.get_semantics',
+    description:
+        'Returns a flat list of visible semantics nodes from the running app. '
+        'Each node is a JSON object with the same fields as SemanticNode in '
+        'flutter_slipstream: id, role, label, value, hint, checked, toggled, '
+        'selected, enabled, focused, actions, left, top, right, bottom. '
+        'Coordinates are in screen-space logical pixels (more accurate than '
+        'the out-of-process evaluate-based implementation). '
+        'Call ext.slipstream.enable_semantics first if the tree is empty.',
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+        name: 'nodes',
+        type: 'List',
+        description: 'List of semantics node objects (present when ok=true).',
+      ),
+      ReturnDescription(
+        name: 'error',
+        type: 'String',
+        description: 'Error message (present when ok=false).',
+      ),
+    ],
+  );
+
+  Future<Map<String, Object?>> _getSemanticsExtension(
+      ExtensionParameters parameters) async {
+    final (nodes, error) = getSemanticsNodes();
+    if (error != null) return {'ok': false, 'error': error};
+    return {'ok': true, 'nodes': nodes};
   }
 }
