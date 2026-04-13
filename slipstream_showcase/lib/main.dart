@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:slipstream_showcase/model.dart';
+import 'package:slipstream_agent/slipstream_agent.dart';
 
 import 'common.dart';
 import 'discover_page.dart';
@@ -56,6 +57,8 @@ String _themeModeLabel(ThemeMode mode) => switch (mode) {
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
+  SlipstreamAgent.init(router: GoRouterAdapter(_router));
+
   runApp(const ShowcaseApp());
 }
 
