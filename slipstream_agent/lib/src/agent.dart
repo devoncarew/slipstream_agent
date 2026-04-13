@@ -14,10 +14,10 @@ class Agent {
   /// The singleton instance of the [Agent].
   static Agent get instance => _instance;
 
-  Agent._();
-
   bool _initialized = false;
   RouterAdapter? _router;
+
+  Agent._();
 
   /// Initializes the agent and registers service extensions.
   ///
@@ -25,140 +25,94 @@ class Agent {
   void initialize({RouterAdapter? router}) {
     if (_initialized) return;
     _initialized = true;
+
     _router = router;
 
     registerServiceExtension(
-      ServiceDescription(
-        name: 'ext.slipstream.ping',
-        description: 'Checks the status of the Slipstream agent.',
-        returns: [
-          ReturnDescription(
-              name: 'version',
-              type: 'String',
-              description: 'The slipstream_agent version.')
-        ],
-      ),
-      _ping,
-    );
-
-    // todo: make these long registrations shorter
-
-    registerServiceExtension(
-      ServiceDescription(
-        name: 'ext.slipstream.perform_action',
-        description:
-            'Performs a UI action (tap, set_text) on a widget located by a '
-            'finder (byKey, byType, byText, bySemanticsLabel).',
-        parameters: [
-          ParameterDescription(
-            name: 'action',
-            type: 'String',
-            description: 'The action to perform: "tap" or "set_text".',
-            required: true,
-          ),
-          ParameterDescription(
-            name: 'finder',
-            type: 'String',
-            description:
-                'How to find the widget: "byKey", "byType", "byText", or '
-                '"bySemanticsLabel".',
-            required: true,
-          ),
-          ParameterDescription(
-            name: 'finderValue',
-            type: 'String',
-            description: 'The value to match against the chosen finder.',
-            required: true,
-          ),
-          ParameterDescription(
-            name: 'text',
-            type: 'String',
-            description: 'Required for the set_text action. The text to set.',
-          ),
-          ParameterDescription(
-            name: 'direction',
-            type: 'String',
-            description:
-                'Required for scroll: "up", "down", "left", or "right".',
-          ),
-          ParameterDescription(
-            name: 'pixels',
-            type: 'String',
-            description: 'Required for scroll: number of logical pixels.',
-          ),
-          ParameterDescription(
-            name: 'scrollFinder',
-            type: 'String',
-            description:
-                'Required for scroll_until_visible: finder type for the '
-                'Scrollable widget.',
-          ),
-          ParameterDescription(
-            name: 'scrollFinderValue',
-            type: 'String',
-            description:
-                'Required for scroll_until_visible: finder value for the '
-                'Scrollable widget.',
-          ),
-        ],
-        returns: [
-          ReturnDescription(
-              name: 'ok', type: 'bool', description: 'The status of the call.'),
-          ReturnDescription(
-              name: 'error',
-              type: 'String',
-              description: 'A message describing any error.')
-        ],
-      ),
-      _interact,
+      _pingDescription,
+      _pingExtension,
     );
 
     registerServiceExtension(
-      ServiceDescription(
-        name: 'ext.slipstream.get_route',
-        description:
-            'Returns the current route path from the registered router adapter. '
-            'Requires SlipstreamAgent.init(router: ...) to have been called.',
-        returns: [
-          ReturnDescription(
-            name: 'path',
-            type: 'String',
-            description: 'The current route path, e.g. "/podcast/123".',
-          ),
-        ],
-      ),
-      _getRoute,
+      _getRouteDescription,
+      _getRouteExtension,
     );
 
     registerServiceExtension(
-      ServiceDescription(
-        name: 'ext.slipstream.navigate',
-        description:
-            'Navigates the app to a route path via the registered router '
-            'adapter. Requires SlipstreamAgent.init(router: ...) to have been '
-            'called.',
-        parameters: [
-          ParameterDescription(
-            name: 'path',
-            type: 'String',
-            description: 'Route path to navigate to, e.g. "/podcast/123".',
-            required: true,
-          ),
-        ],
-        returns: [
-          ReturnDescription(
-              name: 'ok', type: 'bool', description: 'The status of the call.'),
-          ReturnDescription(
-              name: 'error',
-              type: 'String',
-              description: 'A message describing any error.')
-        ],
-      ),
-      _navigate,
+      _navigateDescription,
+      _navigateExtension,
+    );
+
+    registerServiceExtension(
+      _interactDescription,
+      _interactExtension,
     );
   }
 
-  Future<Map<String, Object?>> _interact(
+  final ServiceDescription _interactDescription = ServiceDescription(
+    name: 'ext.slipstream.perform_action',
+    description:
+        'Performs a UI action (tap, set_text) on a widget located by a '
+        'finder (byKey, byType, byText, bySemanticsLabel).',
+    parameters: [
+      ParameterDescription(
+        name: 'action',
+        type: 'String',
+        description: 'The action to perform: "tap" or "set_text".',
+        required: true,
+      ),
+      ParameterDescription(
+        name: 'finder',
+        type: 'String',
+        description: 'How to find the widget: "byKey", "byType", "byText", or '
+            '"bySemanticsLabel".',
+        required: true,
+      ),
+      ParameterDescription(
+        name: 'finderValue',
+        type: 'String',
+        description: 'The value to match against the chosen finder.',
+        required: true,
+      ),
+      ParameterDescription(
+        name: 'text',
+        type: 'String',
+        description: 'Required for the set_text action. The text to set.',
+      ),
+      ParameterDescription(
+        name: 'direction',
+        type: 'String',
+        description: 'Required for scroll: "up", "down", "left", or "right".',
+      ),
+      ParameterDescription(
+        name: 'pixels',
+        type: 'String',
+        description: 'Required for scroll: number of logical pixels.',
+      ),
+      ParameterDescription(
+        name: 'scrollFinder',
+        type: 'String',
+        description: 'Required for scroll_until_visible: finder type for the '
+            'Scrollable widget.',
+      ),
+      ParameterDescription(
+        name: 'scrollFinderValue',
+        type: 'String',
+        description: 'Required for scroll_until_visible: finder value for the '
+            'Scrollable widget.',
+      ),
+    ],
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+          name: 'error',
+          type: 'String',
+          description: 'A message describing any error.')
+    ],
+  );
+
+  Future<Map<String, Object?>> _interactExtension(
     ExtensionParameters parameters,
   ) async {
     final String action = parameters.asStringRequired('action');
@@ -235,7 +189,22 @@ class Agent {
     return {'ok': true};
   }
 
-  Future<Map<String, Object?>> _getRoute(ExtensionParameters parameters) async {
+  final ServiceDescription _getRouteDescription = ServiceDescription(
+    name: 'ext.slipstream.get_route',
+    description:
+        'Returns the current route path from the registered router adapter. '
+        'Requires SlipstreamAgent.init(router: ...) to have been called.',
+    returns: [
+      ReturnDescription(
+        name: 'path',
+        type: 'String',
+        description: 'The current route path, e.g. "/podcast/123".',
+      ),
+    ],
+  );
+
+  Future<Map<String, Object?>> _getRouteExtension(
+      ExtensionParameters parameters) async {
     final path = _router?.currentPath();
     if (path == null) {
       return {
@@ -246,7 +215,30 @@ class Agent {
     return {'ok': true, 'path': path};
   }
 
-  Future<Map<String, Object?>> _navigate(
+  final ServiceDescription _navigateDescription = ServiceDescription(
+    name: 'ext.slipstream.navigate',
+    description: 'Navigates the app to a route path via the registered router '
+        'adapter. Requires SlipstreamAgent.init(router: ...) to have been '
+        'called.',
+    parameters: [
+      ParameterDescription(
+        name: 'path',
+        type: 'String',
+        description: 'Route path to navigate to, e.g. "/podcast/123".',
+        required: true,
+      ),
+    ],
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+          name: 'error',
+          type: 'String',
+          description: 'A message describing any error.')
+    ],
+  );
+
+  Future<Map<String, Object?>> _navigateExtension(
     ExtensionParameters parameters,
   ) async {
     final String path = parameters.asStringRequired('path');
@@ -274,7 +266,19 @@ class Agent {
     }
   }
 
-  Future<Map<String, Object?>> _ping(ExtensionParameters parameters) async {
+  final ServiceDescription _pingDescription = ServiceDescription(
+    name: 'ext.slipstream.ping',
+    description: 'Checks the status of the Slipstream agent.',
+    returns: [
+      ReturnDescription(
+          name: 'version',
+          type: 'String',
+          description: 'The slipstream_agent version.')
+    ],
+  );
+
+  Future<Map<String, Object?>> _pingExtension(
+      ExtensionParameters parameters) async {
     return {
       'version': '0.1.0',
     };
