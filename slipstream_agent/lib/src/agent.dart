@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:service_extensions/service_extensions.dart';
 
@@ -32,10 +31,17 @@ class Agent {
       ServiceDescription(
         name: 'ext.slipstream.ping',
         description: 'Checks the status of the Slipstream agent.',
-        returns: 'A status object.',
+        returns: [
+          ReturnDescription(
+              name: 'version',
+              type: 'String',
+              description: 'The slipstream_agent version.')
+        ],
       ),
       _ping,
     );
+
+    // todo: make these long registrations shorter
 
     registerServiceExtension(
       ServiceDescription(
@@ -95,11 +101,33 @@ class Agent {
                 'Scrollable widget.',
           ),
         ],
-        returns:
-            'An object with an "ok" boolean. On failure, includes an "error" '
-            'string.',
+        returns: [
+          ReturnDescription(
+              name: 'ok', type: 'bool', description: 'The status of the call.'),
+          ReturnDescription(
+              name: 'error',
+              type: 'String',
+              description: 'A message describing any error.')
+        ],
       ),
       _interact,
+    );
+
+    registerServiceExtension(
+      ServiceDescription(
+        name: 'ext.slipstream.get_route',
+        description:
+            'Returns the current route path from the registered router adapter. '
+            'Requires SlipstreamAgent.init(router: ...) to have been called.',
+        returns: [
+          ReturnDescription(
+            name: 'path',
+            type: 'String',
+            description: 'The current route path, e.g. "/podcast/123".',
+          ),
+        ],
+      ),
+      _getRoute,
     );
 
     registerServiceExtension(
@@ -117,38 +145,21 @@ class Agent {
             required: true,
           ),
         ],
-        returns:
-            'An object with an "ok" boolean. On failure, includes an "error" '
-            'string.',
+        returns: [
+          ReturnDescription(
+              name: 'ok', type: 'bool', description: 'The status of the call.'),
+          ReturnDescription(
+              name: 'error',
+              type: 'String',
+              description: 'A message describing any error.')
+        ],
       ),
       _navigate,
-    );
-
-    registerServiceExtension(
-      ServiceDescription(
-        name: 'ext.slipstream.echo',
-        description: 'Echoes back a message.',
-        parameters: [
-          ParameterDescription(
-            name: 'message',
-            type: 'String',
-            description: 'The message to echo.',
-            required: true,
-          ),
-          ParameterDescription(
-            name: 'name',
-            type: 'String',
-            description: 'An optional name to include.',
-          ),
-        ],
-        returns: 'The echoed message.',
-      ),
-      _echo,
     );
   }
 
   Future<Map<String, Object?>> _interact(
-    ServiceExtensionParameters parameters,
+    ExtensionParameters parameters,
   ) async {
     final String action = parameters.asStringRequired('action');
     final String finder = parameters.asStringRequired('finder');
@@ -224,8 +235,19 @@ class Agent {
     return {'ok': true};
   }
 
+  Future<Map<String, Object?>> _getRoute(ExtensionParameters parameters) async {
+    final path = _router?.currentPath();
+    if (path == null) {
+      return {
+        'ok': false,
+        'error': 'get_route: no router adapter registered or path unavailable',
+      };
+    }
+    return {'ok': true, 'path': path};
+  }
+
   Future<Map<String, Object?>> _navigate(
-    ServiceExtensionParameters parameters,
+    ExtensionParameters parameters,
   ) async {
     final String path = parameters.asStringRequired('path');
 
@@ -252,19 +274,9 @@ class Agent {
     }
   }
 
-  Future<Map<String, Object?>> _ping(
-      ServiceExtensionParameters parameters) async {
+  Future<Map<String, Object?>> _ping(ExtensionParameters parameters) async {
     return {
-      'status': 'ok',
       'version': '0.1.0',
-      'flutterVersion': kIsWeb ? 'web' : 'native',
     };
-  }
-
-  Future<String> _echo(ServiceExtensionParameters parameters) async {
-    final message = parameters.asStringRequired('message');
-    final name = parameters.asString('name');
-
-    return name != null ? 'hello $name; => $message' : '=> $message';
   }
 }

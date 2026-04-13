@@ -17,6 +17,10 @@ abstract class RouterAdapter {
   /// Should be called on the UI thread. Returns normally on success; throws
   /// on failure.
   void go(BuildContext context, String path);
+
+  /// Returns the current route path (e.g. `"/podcast/123"`), or null if the
+  /// path cannot be determined.
+  String? currentPath();
 }
 
 /// [RouterAdapter] implementation for the `go_router` package.
@@ -42,5 +46,16 @@ class GoRouterAdapter extends RouterAdapter {
     // Calls GoRouter.go(path) dynamically — no import of go_router needed.
     // ignore: avoid_dynamic_calls
     _router.go(path);
+  }
+
+  @override
+  String? currentPath() {
+    try {
+      // Calls GoRouter.state.uri.toString() dynamically.
+      // ignore: avoid_dynamic_calls
+      return _router.state.uri.toString();
+    } catch (_) {
+      return null;
+    }
   }
 }
