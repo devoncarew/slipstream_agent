@@ -249,3 +249,22 @@ change). Backed by `WidgetsBindingObserver.didChangeMetrics`.
 | `physicalWidth` / `physicalHeight` | double | Dimensions in physical pixels |
 | `devicePixelRatio` | double | Physical pixels per logical pixel |
 | `logicalWidth` / `logicalHeight` | double | Dimensions in logical pixels (`physical / devicePixelRatio`) |
+
+### `ext.slipstream.routeChanged`
+
+Fired whenever the registered router adapter's route changes. Requires
+`SlipstreamAgent.init(router: ...)` to have been called.
+
+`GoRouterAdapter` hooks this by listening to the `GoRouter` instance as a
+`Listenable` (no hard `go_router` import required). The event fires once per
+navigation, after the router has settled on the new path.
+
+**Payload:**
+
+```json
+{ "path": "/podcast/787ae263b723" }
+```
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `path` | String | The new current route path, as returned by `RouterAdapter.currentPath()` |

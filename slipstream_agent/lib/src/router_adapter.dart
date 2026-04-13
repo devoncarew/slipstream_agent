@@ -1,3 +1,5 @@
+import 'dart:developer' show postEvent;
+
 import 'package:flutter/widgets.dart';
 
 /// Adapter interface that lets slipstream_agent navigate the app without
@@ -34,12 +36,24 @@ abstract class RouterAdapter {
 /// SlipstreamAgent.init(router: GoRouterAdapter(_router));
 /// ```
 class GoRouterAdapter extends RouterAdapter {
-  GoRouterAdapter(this._router);
-
   /// The [GoRouter] instance. Declared as `dynamic` to avoid a hard
   /// compile-time dependency on the `go_router` package. At runtime, this must
-  /// be a `GoRouter` with a `.go(String path)` method.
+  /// be a `GoRouter` with a `.go(String path)` method and a `.state.uri`
+  /// getter, and it must implement [Listenable].
+  GoRouterAdapter(this._router) {
+    // GoRouter extends ChangeNotifier, so it is a Listenable. We cast via the
+    // Flutter-provided interface rather than importing go_router.
+    (_router as Listenable).addListener(_onRouteChanged);
+  }
+
   final dynamic _router;
+
+  void _onRouteChanged() {
+    final path = currentPath();
+    if (path != null) {
+      postEvent('ext.slipstream.routeChanged', {'path': path});
+    }
+  }
 
   @override
   void go(BuildContext context, String path) {
