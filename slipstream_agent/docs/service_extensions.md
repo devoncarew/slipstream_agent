@@ -139,3 +139,80 @@ populated. Call this before any operation that relies on semantics labels (e.g.
 **Parameters:** none
 
 **Returns:** none
+
+---
+
+## `ext.slipstream.get_semantics`
+
+Returns a flat list of visible semantics nodes from the running app. This is an
+in-process alternative to the out-of-process implementation in the Slipstream
+MCP server. It is more reliable and includes screen-space bounds.
+
+Call `ext.slipstream.enable_semantics` first if the tree has not been enabled.
+
+**Parameters:** none
+
+**Returns:**
+
+Success:
+
+```json
+{
+  "ok": true,
+  "nodes": [
+    {
+      "id": 7,
+      "role": "button",
+      "label": "Betelgeuse Red supergiant · 700 solar radii",
+      "value": "",
+      "hint": "",
+      "checked": null,
+      "toggled": null,
+      "selected": null,
+      "enabled": null,
+      "focused": false,
+      "actions": 4194305,
+      "left": 16.0,
+      "top": 200.0,
+      "right": 377.0,
+      "bottom": 272.0
+    }
+  ]
+}
+```
+
+Failure (semantics not enabled or tree empty):
+
+```json
+{ "ok": false, "error": "semantics not enabled" }
+```
+
+**Node fields:**
+
+| Field | Type | Description |
+| ----- | ---- | ----------- |
+| `id` | int | Framework-internal node ID; stable until next hot reload/restart |
+| `role` | String | `"button"`, `"textfield"`, `"slider"`, `"link"`, `"image"`, `"header"`, `"checkbox"`, `"toggle"`, `"radio"`, or `""` |
+| `label` | String | Primary accessibility label |
+| `value` | String | Current value (e.g. slider position, text field content) |
+| `hint` | String | Short description of what happens on action |
+| `checked` | bool? | Checkbox checked state; `null` if not a checkbox |
+| `toggled` | bool? | Toggle/switch on state; `null` if not a toggle |
+| `selected` | bool? | Selected state (tabs, list items); `null` if not applicable |
+| `enabled` | bool? | Enabled/disabled; `null` if not applicable |
+| `focused` | bool | Whether this node currently has input focus |
+| `actions` | int | `SemanticsAction` bitmask (tap=1, longPress=2, scrollLeft=4, scrollRight=8, scrollUp=16, scrollDown=32, increase=64, decrease=128, setText=1<<21, focus=1<<22) |
+| `left` | double | Screen-space left edge in logical pixels |
+| `top` | double | Screen-space top edge in logical pixels |
+| `right` | double | Screen-space right edge in logical pixels |
+| `bottom` | double | Screen-space bottom edge in logical pixels |
+
+Trivial nodes (no role, no actions, no label/value/hint, no relevant state) are
+elided from the list.
+
+**Improvement over the out-of-process version:** The evaluate-based
+implementation cannot accumulate `SemanticsNode.transform` matrices across the
+tree, so it reports each node's bounding box in its own local coordinate space —
+unreliable for any node that isn't at the root level. This extension walks the
+live tree in-process, accumulating transforms, so `left`/`top`/`right`/`bottom`
+are true screen-space coordinates.

@@ -43,6 +43,7 @@ using `registerServiceExtension()` from `package:service_extensions`.
 | `ext.slipstream.navigate`         | Route navigation via the registered `RouterAdapter`                    |
 | `ext.slipstream.get_route`        | Current route path from the registered `RouterAdapter`                 |
 | `ext.slipstream.enable_semantics` | Calls `RendererBinding.instance.ensureSemantics()` + `scheduleFrame()` |
+| `ext.slipstream.get_semantics` | Returns visible semantics nodes with screen-space bounds (improved vs. out-of-process) |
 
 See `slipstream_agent/docs/service_extensions.md` for the full parameter and
 return-value spec for each extension.
