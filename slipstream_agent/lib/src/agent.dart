@@ -315,11 +315,7 @@ class Agent {
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
     RendererBinding.instance.ensureSemantics();
-    final completer = Completer();
-    WidgetsBinding.instance.scheduleFrameCallback(
-        (timeStamp) => completer.complete(),
-        scheduleNewFrame: true);
-    await completer.future;
+    await _waitForNextFrame();
     return {};
   }
 
@@ -386,7 +382,10 @@ class Agent {
       ExtensionParameters parameters) async {
     final String? enabledStr = parameters.asString('enabled');
     if (enabledStr == null) {
-      return {'ok': false, 'error': 'overlays: "enabled" parameter is required'};
+      return {
+        'ok': false,
+        'error': 'overlays: "enabled" parameter is required'
+      };
     }
     final bool? enabled = enabledStr == 'true'
         ? true
@@ -402,6 +401,18 @@ class Agent {
     }
 
     setOverlaysEnabled(enabled);
+
+    await _waitForNextFrame();
+
     return {'ok': true};
+  }
+
+  // A addPostFrameCallback() callback may be more correct here.
+  Future<void> _waitForNextFrame() async {
+    final completer = Completer();
+    WidgetsBinding.instance.scheduleFrameCallback(
+        (timeStamp) => completer.complete(),
+        scheduleNewFrame: true);
+    await completer.future;
   }
 }
