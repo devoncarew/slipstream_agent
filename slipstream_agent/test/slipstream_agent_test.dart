@@ -491,7 +491,8 @@ void main() {
       WidgetsApp.debugAllowBannerOverride = true;
     });
 
-    testWidgets('hides the debug banner when called with false', (tester) async {
+    testWidgets('hides the debug banner when called with false',
+        (tester) async {
       await tester.pumpWidget(const MaterialApp(home: Scaffold()));
 
       expect(WidgetsApp.debugAllowBannerOverride, isTrue);
@@ -515,7 +516,8 @@ void main() {
       expect(WidgetsApp.debugAllowBannerOverride, isTrue);
     });
 
-    testWidgets('restores to false if banner was already hidden', (tester) async {
+    testWidgets('restores to false if banner was already hidden',
+        (tester) async {
       WidgetsApp.debugAllowBannerOverride = false;
       await tester.pumpWidget(const MaterialApp(home: Scaffold()));
 
