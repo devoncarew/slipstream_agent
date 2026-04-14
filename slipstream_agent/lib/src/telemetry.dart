@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:developer' show postEvent;
 
 import 'package:flutter/widgets.dart';
@@ -14,6 +15,8 @@ void initTelemetry() {
 final _SlipstreamObserver _observer = _SlipstreamObserver();
 
 class _SlipstreamObserver extends WidgetsBindingObserver {
+  Timer? _previousEvent;
+
   /// Fires whenever the window metrics change (resize, rotation, DPR change).
   ///
   /// Posts `ext.slipstream.windowResized` with the logical and physical
@@ -21,18 +24,28 @@ class _SlipstreamObserver extends WidgetsBindingObserver {
   @override
   void didChangeMetrics() {
     final view = WidgetsBinding.instance.platformDispatcher.implicitView;
-    if (view == null) return;
+    if (view == null) {
+      return;
+    }
+
+    _previousEvent?.cancel();
 
     final physicalSize = view.physicalSize;
     final dpr = view.devicePixelRatio;
 
-    postEvent('ext.slipstream.windowResized', {
+    final data = {
       'viewId': view.viewId,
       'physicalWidth': physicalSize.width,
       'physicalHeight': physicalSize.height,
       'devicePixelRatio': dpr,
       'logicalWidth': physicalSize.width / dpr,
       'logicalHeight': physicalSize.height / dpr,
+    };
+
+    // De-bounce the event - when resizing a window we generate a large number
+    // of notifications.
+    _previousEvent = Timer(const Duration(milliseconds: 100), () {
+      postEvent('ext.slipstream.windowResized', data);
     });
   }
 }

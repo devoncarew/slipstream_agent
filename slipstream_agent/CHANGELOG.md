@@ -1,3 +1,16 @@
+## 0.1.2
+
+- Fix `GoRouterAdapter` listener registration: cast to `Listenable` (from
+  `flutter/foundation.dart`) rather than a concrete type, restoring the
+  zero-`go_router`-dependency design.
+- Fix `get_semantics` returning an empty node list: revert semantics owner
+  lookup to `pipelineOwner.semanticsOwner` (`rootPipelineOwner` was returning
+  null).
+- Debounce `ext.slipstream.windowResized` events by 100 ms to avoid
+  flooding clients during continuous window resize.
+- Switch `scrollElement` from `animateTo` to `jumpTo` — animation served no
+  purpose for an AI agent caller.
+
 ## 0.1.1
 
 - Update `GoRouterAdapter` to reference the router via the [RouterConfig] parent

@@ -43,9 +43,11 @@ class GoRouterAdapter extends RouterAdapter {
   /// be a `GoRouter` with a `.go(String path)` method and a `.state.uri`
   /// getter.
   GoRouterAdapter(this._router) {
-    // We reference via the [RouterConfig] parent type rather than importing
-    // go_router.
-    _router.routeInformationProvider?.addListener(_onRouteChanged);
+    // routerDelegate is a RouterDelegate<T>, which is a Listenable. It
+    // notifies after the route has been committed, so state.uri is current
+    // when _onRouteChanged fires. routeInformationProvider fires too early
+    // (before GoRouter.state is updated).
+    _router.routerDelegate.addListener(_onRouteChanged);
   }
 
   void _onRouteChanged() {
