@@ -1,6 +1,8 @@
 name: slipstream_agent
-description: In-process companion for Slipstream Flutter agent tools.
 version: 0.1.0
+description: An in-process companion for the Flutter Slipstream agent tools.
+
+repository: https://github.com/devoncarew/slipstream_agent/tree/main/slipstream_agent
 
 environment:
   sdk: ^3.3.0

@@ -104,8 +104,6 @@ Failure:
 
 Navigates the app to a route path using the registered router adapter.
 
-> **Status:** implemented.
-
 **Parameters:**
 
 | Name   | Type   | Required | Description                       |
@@ -189,6 +187,7 @@ Failure (semantics not enabled or tree empty):
 
 **Node fields:**
 
+<!-- prettier-ignore-start -->
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `id` | int | Framework-internal node ID; stable until next hot reload/restart |
@@ -206,6 +205,7 @@ Failure (semantics not enabled or tree empty):
 | `top` | double | Screen-space top edge in logical pixels |
 | `right` | double | Screen-space right edge in logical pixels |
 | `bottom` | double | Screen-space bottom edge in logical pixels |
+<!-- prettier-ignore-end -->
 
 Trivial nodes (no role, no actions, no label/value/hint, no relevant state) are
 elided from the list.
@@ -243,12 +243,14 @@ change). Backed by `WidgetsBindingObserver.didChangeMetrics`.
 }
 ```
 
+<!-- prettier-ignore-start -->
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `viewId` | int | Identifies the view that changed (relevant for multi-window apps) |
 | `physicalWidth` / `physicalHeight` | double | Dimensions in physical pixels |
 | `devicePixelRatio` | double | Physical pixels per logical pixel |
 | `logicalWidth` / `logicalHeight` | double | Dimensions in logical pixels (`physical / devicePixelRatio`) |
+<!-- prettier-ignore-end -->
 
 ### `ext.slipstream.routeChanged`
 
@@ -265,6 +267,8 @@ navigation, after the router has settled on the new path.
 { "path": "/podcast/787ae263b723" }
 ```
 
+<!-- prettier-ignore-start -->
 | Field | Type | Description |
 | ----- | ---- | ----------- |
 | `path` | String | The new current route path, as returned by `RouterAdapter.currentPath()` |
+<!-- prettier-ignore-end -->

@@ -1,46 +1,97 @@
 # slipstream_agent
 
-An in-process companion package for
-[Flutter Slipstream](https://github.com/devoncarew/flutter-slipstream).
+A companion package for the
+[Flutter Slipstream](https://github.com/devoncarew/flutter-slipstream) AI agent
+tools.
 
-`slipstream_agent` is an optional, opt-in `dev_dependency` that upgrades the
-connection between the Flutter Slipstream MCP server and your running app from
-external observation to internal cooperation.
+Install this package to give Slipstream deeper access to your running app.
+Without it, Slipstream works through external VM service observation — reliable,
+but limited. With it, the agent can find and interact with any widget in your
+tree, navigate programmatically regardless of which routing library you use, and
+receive real-time telemetry as you build your app.
 
-## Features
+## Why install it
 
-- **Advanced UI Finders:** Target widgets by `Key`, `Type`, or `Text` without
-  needing explicit `Semantics` annotations.
-- **Scroll Support:** Programmatically scroll off-screen content into view.
-- **Unified Routing:** Provides a uniform interface for programmatic navigation
-  across different routing libraries.
-- **Ghost Overlay:** Gives visual feedback in the app showing exactly what the
-  agent is currently targeting.
+- **Find any widget, not just labelled ones.** The baseline tools rely on the
+  Flutter semantics tree, which only knows about widgets with explicit
+  accessibility labels. With this package, the agent can target widgets by
+  `Key`, type, or visible text — no `Semantics` annotations needed.
+
+- **Accurate layout information.** The semantics query extension accumulates
+  transform matrices as it walks the widget tree, so reported bounds are true
+  screen-space coordinates rather than each node's unreliable local coordinate
+  space.
+
+- **Navigate any router.** The baseline `navigate` tool is go_router-specific.
+  With a `RouterAdapter`, navigation and route queries work the same way
+  regardless of which routing library your app uses.
+
+- **Real-time telemetry.** The agent receives structured events as your app runs
+  — window resizes, route changes — without polling.
 
 ## Getting started
 
-Add `slipstream_agent` as a development dependency:
+Add `slipstream_agent` as a dependency (the package uses debug-only APIs and is
+fully tree-shaken from release builds):
 
-```bash
-flutter pub add dev:slipstream_agent
+```yaml
+dependencies:
+  slipstream_agent: ^0.1.0
 ```
 
-## Usage
+Or with the CLI:
 
-Initialize the agent in your `main()` function. The initialization is a no-op
-when the app is not in debug mode (`kDebugMode`).
+```bash
+flutter pub add slipstream_agent
+```
+
+Then initialize in `main()`:
 
 ```dart
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:slipstream_agent/slipstream_agent.dart';
 
 void main() {
-  // Initialize the Slipstream agent.
-  SlipstreamAgent.init();
-
+  if (kDebugMode) {
+    SlipstreamAgent.init();
+  }
   runApp(const MyApp());
 }
 ```
 
-The Slipstream MCP server will automatically detect the presence of the agent
-and use it to provide enhanced capabilities and reliability.
+### With go_router
+
+```dart
+final GoRouter _router = GoRouter(routes: [...]);
+
+void main() {
+  if (kDebugMode) {
+    SlipstreamAgent.init(router: GoRouterAdapter(_router));
+  }
+  runApp(MyApp(router: _router));
+}
+```
+
+`GoRouterAdapter` has no compile-time dependency on `go_router` — the router
+instance is accepted as `dynamic`.
+
+## How it works
+
+When Slipstream connects to your app, it calls `ext.slipstream.ping`. If the
+call succeeds, the server routes tool calls through the typed in-process
+extensions this package registers. If the package is not installed, all tools
+fall back silently to the baseline behavior.
+
+Extensions are registered under the `ext.slipstream.*` namespace:
+
+| Extension                         | Description                                              |
+| --------------------------------- | -------------------------------------------------------- |
+| `ext.slipstream.ping`             | Session detection; returns the package version           |
+| `ext.slipstream.perform_action`   | Tap, set_text, scroll, scroll_until_visible              |
+| `ext.slipstream.enable_semantics` | Enables the Flutter semantics tree                       |
+| `ext.slipstream.get_semantics`    | Returns visible semantics nodes with screen-space bounds |
+| `ext.slipstream.navigate`         | Navigates to a route path via the router adapter         |
+| `ext.slipstream.get_route`        | Returns the current route path via the router adapter    |
+
+See [`docs/service_extensions.md`](docs/service_extensions.md) for the full
+protocol reference.

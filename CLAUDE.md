@@ -36,14 +36,14 @@ slipstream_showcase/ — a Flutter app that exercises the extensions manually
 All extensions are registered in `Agent.initialize()` (`lib/src/agent.dart`)
 using `registerServiceExtension()` from `package:service_extensions`.
 
-| Extension                         | Purpose                                                                |
-| --------------------------------- | ---------------------------------------------------------------------- |
-| `ext.slipstream.ping`             | Session detection; returns package version                             |
-| `ext.slipstream.perform_action`   | Tap, set_text, scroll, scroll_until_visible via element-tree finders   |
-| `ext.slipstream.navigate`         | Route navigation via the registered `RouterAdapter`                    |
-| `ext.slipstream.get_route`        | Current route path from the registered `RouterAdapter`                 |
-| `ext.slipstream.enable_semantics` | Calls `RendererBinding.instance.ensureSemantics()` + `scheduleFrame()` |
-| `ext.slipstream.get_semantics` | Returns visible semantics nodes with screen-space bounds (improved vs. out-of-process) |
+| Extension                         | Purpose                                                                                |
+| --------------------------------- | -------------------------------------------------------------------------------------- |
+| `ext.slipstream.ping`             | Session detection; returns package version                                             |
+| `ext.slipstream.perform_action`   | Tap, set_text, scroll, scroll_until_visible via element-tree finders                   |
+| `ext.slipstream.navigate`         | Route navigation via the registered `RouterAdapter`                                    |
+| `ext.slipstream.get_route`        | Current route path from the registered `RouterAdapter`                                 |
+| `ext.slipstream.enable_semantics` | Calls `RendererBinding.instance.ensureSemantics()` + `scheduleFrame()`                 |
+| `ext.slipstream.get_semantics`    | Returns visible semantics nodes with screen-space bounds (improved vs. out-of-process) |
 
 See `slipstream_agent/docs/service_extensions.md` for the full parameter and
 return-value spec for each extension.
@@ -54,10 +54,10 @@ In addition to request/response extensions, the agent posts events to the VM
 service `Extension` stream via `dart:developer.postEvent`. Clients subscribe
 with `streamListen('Extension')` and filter by `event.extensionKind`.
 
-| Event | Trigger | Source |
-| ----- | ------- | ------ |
-| `ext.slipstream.windowResized` | Window/display metrics change | `WidgetsBindingObserver.didChangeMetrics` |
-| `ext.slipstream.routeChanged` | Router navigates to a new path | `GoRouterAdapter` listener on the `GoRouter` `Listenable` |
+| Event                          | Trigger                        | Source                                                    |
+| ------------------------------ | ------------------------------ | --------------------------------------------------------- |
+| `ext.slipstream.windowResized` | Window/display metrics change  | `WidgetsBindingObserver.didChangeMetrics`                 |
+| `ext.slipstream.routeChanged`  | Router navigates to a new path | `GoRouterAdapter` listener on the `GoRouter` `Listenable` |
 
 Telemetry is initialized automatically by `Agent.initialize()` via
 `initTelemetry()` in `lib/src/telemetry.dart`. New events go in that file;
@@ -90,8 +90,8 @@ automatically tree-shaken from release builds.
 
 ## Core Principles
 
-- **Zero-config baseline:** The flutter_slipstream MCP server must remain fully
-  functional without this package installed. These extensions unlock _enhanced_
+- **Zero-config baseline:** The flutter*slipstream MCP server must remain fully
+  functional without this package installed. These extensions unlock \_enhanced*
   capabilities, never required ones.
 - **Debug-only:** Never call or register anything outside `kDebugMode`. No
   production leakage.
@@ -115,10 +115,10 @@ cd slipstream_agent && dart analyze
 
 ## Companion Project
 
-The MCP server that _calls_ these extensions lives in
-`/Users/devoncarew/projects/devoncarew/flutter_slipstream` (the
-`flutter_slipstream` repo). The design rationale, phasing plan, and full
-architectural context are in:
+The MCP server that _calls_ these extensions lives in `../flutter_slipstream` /
+https://github.com/devoncarew/flutter-slipstream (the `flutter_slipstream`
+repo). The design rationale, phasing plan, and full architectural context are
+in:
 
 - `flutter_slipstream/DESIGN.md` — overall plugin architecture
 - `flutter_slipstream/docs/slipstream_agent.md` — companion package design doc

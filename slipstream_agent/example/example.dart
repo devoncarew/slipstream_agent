@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:slipstream_agent/slipstream_agent.dart';
 
 void main() {
-  // Initialize the Slipstream agent.
-  SlipstreamAgent.init();
+  if (kDebugMode) {
+    SlipstreamAgent.init();
+  }
 
   runApp(const SlipstreamExampleApp());
 }
