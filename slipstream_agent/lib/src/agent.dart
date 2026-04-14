@@ -6,6 +6,7 @@ import 'package:service_extensions/service_extensions.dart';
 
 import 'actions.dart';
 import 'finder.dart';
+import 'overlays.dart';
 import 'router_adapter.dart';
 import 'semantics.dart';
 import 'telemetry.dart';
@@ -62,6 +63,11 @@ class Agent {
       _getSemanticsExtension,
     );
 
+    registerServiceExtension(
+      _overlaysDescription,
+      _overlaysExtension,
+    );
+
     initTelemetry();
   }
 
@@ -102,7 +108,7 @@ class Agent {
       ),
       ParameterDescription(
         name: 'pixels',
-        type: 'String',
+        type: 'double',
         description: 'Required for scroll: number of logical pixels.',
       ),
       ParameterDescription(
@@ -136,7 +142,7 @@ class Agent {
     final String finderValue = parameters.asStringRequired('finderValue');
     final String? text = parameters.asString('text');
     final String? direction = parameters.asString('direction');
-    final String? pixelsStr = parameters.asString('pixels');
+    final double? pixels = parameters.asDouble('pixels');
     final String? scrollFinder = parameters.asString('scrollFinder');
     final String? scrollFinderValue = parameters.asString('scrollFinderValue');
 
@@ -162,19 +168,14 @@ class Agent {
       case 'scroll':
         if (direction == null) {
           error = 'interact: "direction" is required for the scroll action';
-        } else if (pixelsStr == null) {
+        } else if (pixels == null) {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
-          final double? pixels = double.tryParse(pixelsStr);
-          if (pixels == null) {
-            error = 'interact: "pixels" must be a number, got "$pixelsStr"';
-          } else {
-            error = await scrollElement(
-              element,
-              direction: direction,
-              pixels: pixels,
-            );
-          }
+          error = await scrollElement(
+            element,
+            direction: direction,
+            pixels: pixels,
+          );
         }
       case 'scroll_until_visible':
         if (scrollFinder == null || scrollFinderValue == null) {
@@ -309,11 +310,7 @@ class Agent {
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
     RendererBinding.instance.ensureSemantics();
-    final completer = Completer();
-    WidgetsBinding.instance.scheduleFrameCallback(
-        (timeStamp) => completer.complete(),
-        scheduleNewFrame: true);
-    await completer.future;
+    await _waitForNextFrame();
     return {};
   }
 
@@ -348,5 +345,51 @@ class Agent {
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
     return {'ok': true, 'nodes': nodes};
+  }
+
+  final ServiceDescription _overlaysDescription = ServiceDescription(
+    name: 'ext.slipstream.overlays',
+    description:
+        'Shows or hides all Slipstream-managed overlays (debug banner, and '
+        'future Slipstream overlays). Passing enabled=false saves the current '
+        'overlay state and hides everything; passing enabled=true restores the '
+        'previously saved state. Triggers a frame rebuild after each change.',
+    parameters: [
+      ParameterDescription(
+        name: 'enabled',
+        type: 'bool',
+        description:
+            'false to hide all overlays (saving state); true to restore.',
+        required: true,
+      ),
+    ],
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+          name: 'error',
+          type: 'String',
+          description: 'A message describing any error.'),
+    ],
+  );
+
+  Future<Map<String, Object?>> _overlaysExtension(
+      ExtensionParameters parameters) async {
+    final enabled = parameters.asBoolRequired('enabled');
+
+    setOverlaysEnabled(enabled);
+
+    await _waitForNextFrame();
+
+    return {'ok': true};
+  }
+
+  // A addPostFrameCallback() callback may be more correct here.
+  Future<void> _waitForNextFrame() async {
+    final completer = Completer();
+    WidgetsBinding.instance.scheduleFrameCallback(
+        (timeStamp) => completer.complete(),
+        scheduleNewFrame: true);
+    await completer.future;
   }
 }

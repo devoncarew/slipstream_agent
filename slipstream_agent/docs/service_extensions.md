@@ -89,7 +89,7 @@ Failure:
 
 - **scroll** — finds a `Scrollable` in the element's subtree and calls
   `position.animateTo(pixels + delta)`. Required params: `direction` (`"up"`,
-  `"down"`, `"left"`, `"right"`) and `pixels` (logical pixels as a string).
+  `"down"`, `"left"`, `"right"`) and `pixels` (logical pixels as a double).
   Clamped to the scroll extent bounds.
 
 - **scroll_until_visible** — scrolls the `Scrollable` identified by
@@ -216,6 +216,49 @@ tree, so it reports each node's bounding box in its own local coordinate space �
 unreliable for any node that isn't at the root level. This extension walks the
 live tree in-process, accumulating transforms, so `left`/`top`/`right`/`bottom`
 are true screen-space coordinates.
+
+---
+
+## `ext.slipstream.overlays`
+
+Shows or hides all Slipstream-managed overlays. Designed for use cases like
+screenshots where overlays should be temporarily hidden.
+
+Calling with `enabled=false` saves the current overlay state internally and
+hides everything. Calling with `enabled=true` restores the previously saved
+state. A frame rebuild is triggered after each change.
+
+**Currently managed overlays:**
+
+| Overlay              | Mechanism                             |
+| -------------------- | ------------------------------------- |
+| Flutter debug banner | `WidgetsApp.debugAllowBannerOverride` |
+
+**Parameters:**
+
+| Name      | Type | Required | Description                                           |
+| --------- | ---- | -------- | ----------------------------------------------------- |
+| `enabled` | bool | yes      | `false` to hide all overlays; `true` to restore state |
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+or
+
+```json
+{ "ok": false, "error": "overlays: \"enabled\" parameter is required" }
+```
+
+**Typical screenshot flow:**
+
+```
+1. call ext.slipstream.overlays(enabled: false)
+2. take screenshot
+3. call ext.slipstream.overlays(enabled: true)
+```
 
 ---
 
