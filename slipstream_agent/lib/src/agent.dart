@@ -6,6 +6,7 @@ import 'package:service_extensions/service_extensions.dart';
 
 import 'actions.dart';
 import 'finder.dart';
+import 'overlays.dart';
 import 'router_adapter.dart';
 import 'semantics.dart';
 import 'telemetry.dart';
@@ -60,6 +61,11 @@ class Agent {
     registerServiceExtension(
       _getSemanticsDescription,
       _getSemanticsExtension,
+    );
+
+    registerServiceExtension(
+      _overlaysDescription,
+      _overlaysExtension,
     );
 
     initTelemetry();
@@ -348,5 +354,54 @@ class Agent {
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
     return {'ok': true, 'nodes': nodes};
+  }
+
+  final ServiceDescription _overlaysDescription = ServiceDescription(
+    name: 'ext.slipstream.overlays',
+    description:
+        'Shows or hides all Slipstream-managed overlays (debug banner, and '
+        'future Slipstream overlays). Passing enabled=false saves the current '
+        'overlay state and hides everything; passing enabled=true restores the '
+        'previously saved state. Triggers a frame rebuild after each change.',
+    parameters: [
+      ParameterDescription(
+        name: 'enabled',
+        type: 'bool',
+        description:
+            'false to hide all overlays (saving state); true to restore.',
+        required: true,
+      ),
+    ],
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+          name: 'error',
+          type: 'String',
+          description: 'A message describing any error.'),
+    ],
+  );
+
+  Future<Map<String, Object?>> _overlaysExtension(
+      ExtensionParameters parameters) async {
+    final String? enabledStr = parameters.asString('enabled');
+    if (enabledStr == null) {
+      return {'ok': false, 'error': 'overlays: "enabled" parameter is required'};
+    }
+    final bool? enabled = enabledStr == 'true'
+        ? true
+        : enabledStr == 'false'
+            ? false
+            : null;
+    if (enabled == null) {
+      return {
+        'ok': false,
+        'error': 'overlays: "enabled" must be "true" or "false", '
+            'got "$enabledStr"',
+      };
+    }
+
+    setOverlaysEnabled(enabled);
+    return {'ok': true};
   }
 }

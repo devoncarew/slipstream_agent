@@ -219,6 +219,49 @@ are true screen-space coordinates.
 
 ---
 
+## `ext.slipstream.overlays`
+
+Shows or hides all Slipstream-managed overlays. Designed for use cases like
+screenshots where overlays should be temporarily hidden.
+
+Calling with `enabled=false` saves the current overlay state internally and
+hides everything. Calling with `enabled=true` restores the previously saved
+state. A frame rebuild is triggered after each change.
+
+**Currently managed overlays:**
+
+| Overlay | Mechanism |
+| ------- | --------- |
+| Flutter debug banner | `WidgetsApp.debugAllowBannerOverride` |
+
+**Parameters:**
+
+| Name      | Type | Required | Description                                              |
+| --------- | ---- | -------- | -------------------------------------------------------- |
+| `enabled` | bool | yes      | `false` to hide all overlays; `true` to restore state    |
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+or
+
+```json
+{ "ok": false, "error": "overlays: \"enabled\" parameter is required" }
+```
+
+**Typical screenshot flow:**
+
+```
+1. call ext.slipstream.overlays(enabled: false)
+2. take screenshot
+3. call ext.slipstream.overlays(enabled: true)
+```
+
+---
+
 ## Events
 
 Events are posted to the VM service `Extension` stream via
