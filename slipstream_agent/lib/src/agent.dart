@@ -309,7 +309,11 @@ class Agent {
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
     RendererBinding.instance.ensureSemantics();
-    WidgetsBinding.instance.scheduleFrame();
+    final completer = Completer();
+    WidgetsBinding.instance.scheduleFrameCallback(
+        (timeStamp) => completer.complete(),
+        scheduleNewFrame: true);
+    await completer.future;
     return {};
   }
 

@@ -17,7 +17,10 @@ import 'package:flutter/rendering.dart';
 /// Returns `(null, errorMessage)` if semantics is not enabled or the tree is
 /// empty.
 (List<Map<String, Object?>>?, String?) getSemanticsNodes() {
-  final owner = RendererBinding.instance.rootPipelineOwner.semanticsOwner;
+  // TODO: Investigate how to move over to use rootPipelineOwner or
+  // SemanticsBinding without losing the semantics tree.
+  // ignore: deprecated_member_use
+  final owner = RendererBinding.instance.pipelineOwner.semanticsOwner;
   if (owner == null) return (null, 'semantics not enabled');
   final root = owner.rootSemanticsNode;
   if (root == null) {
