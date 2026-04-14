@@ -1,3 +1,8 @@
+## 0.1.1
+
+- Update `GoRouterAdapter` to reference the router via the [RouterConfig] parent
+  type for additional type safety.
+
 ## 0.1.0
 
 Initial release.

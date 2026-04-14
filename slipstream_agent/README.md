@@ -10,7 +10,7 @@ but limited. With it, the agent can find and interact with any widget in your
 tree, navigate programmatically regardless of which routing library you use, and
 receive real-time telemetry as you build your app.
 
-## Why install it
+## When used with Flutter Slipstream
 
 - **Find any widget, not just labelled ones.** The baseline tools rely on the
   Flutter semantics tree, which only knows about widgets with explicit
