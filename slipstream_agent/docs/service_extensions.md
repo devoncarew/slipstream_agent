@@ -23,7 +23,7 @@ Heartbeat / discovery. Called once per session to detect the companion package.
 
 ```json
 {
-  "version": "0.1.0"
+  "version": "1.0.0"
 }
 ```
 

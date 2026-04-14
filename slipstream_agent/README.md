@@ -36,7 +36,7 @@ fully tree-shaken from release builds):
 
 ```yaml
 dependencies:
-  slipstream_agent: ^0.1.0
+  slipstream_agent: ^1.0.0
 ```
 
 Or with the CLI:

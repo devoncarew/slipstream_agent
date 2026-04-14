@@ -1,4 +1,4 @@
-## next
+## 1.0.0
 
 - Add `ext.slipstream.overlays` extension. Calling with `enabled=false` saves
   the current overlay state and hides all managed overlays (currently the
