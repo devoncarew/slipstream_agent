@@ -1,3 +1,11 @@
+## next
+
+- Add `ext.slipstream.overlays` extension. Calling with `enabled=false` saves
+  the current overlay state and hides all managed overlays (currently the
+  Flutter debug banner via `WidgetsApp.debugAllowBannerOverride`); calling with
+  `enabled=true` restores the previously saved state. Designed for the
+  screenshot use case: hide → capture → restore.
+
 ## 0.1.2
 
 - Fix `GoRouterAdapter` listener registration: cast to `Listenable` (from
@@ -6,8 +14,8 @@
 - Fix `get_semantics` returning an empty node list: revert semantics owner
   lookup to `pipelineOwner.semanticsOwner` (`rootPipelineOwner` was returning
   null).
-- Debounce `ext.slipstream.windowResized` events by 100 ms to avoid
-  flooding clients during continuous window resize.
+- Debounce `ext.slipstream.windowResized` events by 100 ms to avoid flooding
+  clients during continuous window resize.
 - Switch `scrollElement` from `animateTo` to `jumpTo` — animation served no
   purpose for an AI agent caller.
 
