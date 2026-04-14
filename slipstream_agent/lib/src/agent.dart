@@ -108,7 +108,7 @@ class Agent {
       ),
       ParameterDescription(
         name: 'pixels',
-        type: 'String',
+        type: 'double',
         description: 'Required for scroll: number of logical pixels.',
       ),
       ParameterDescription(
@@ -142,7 +142,7 @@ class Agent {
     final String finderValue = parameters.asStringRequired('finderValue');
     final String? text = parameters.asString('text');
     final String? direction = parameters.asString('direction');
-    final String? pixelsStr = parameters.asString('pixels');
+    final double? pixels = parameters.asDouble('pixels');
     final String? scrollFinder = parameters.asString('scrollFinder');
     final String? scrollFinderValue = parameters.asString('scrollFinderValue');
 
@@ -168,19 +168,14 @@ class Agent {
       case 'scroll':
         if (direction == null) {
           error = 'interact: "direction" is required for the scroll action';
-        } else if (pixelsStr == null) {
+        } else if (pixels == null) {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
-          final double? pixels = double.tryParse(pixelsStr);
-          if (pixels == null) {
-            error = 'interact: "pixels" must be a number, got "$pixelsStr"';
-          } else {
-            error = await scrollElement(
-              element,
-              direction: direction,
-              pixels: pixels,
-            );
-          }
+          error = await scrollElement(
+            element,
+            direction: direction,
+            pixels: pixels,
+          );
         }
       case 'scroll_until_visible':
         if (scrollFinder == null || scrollFinderValue == null) {
@@ -380,25 +375,7 @@ class Agent {
 
   Future<Map<String, Object?>> _overlaysExtension(
       ExtensionParameters parameters) async {
-    final String? enabledStr = parameters.asString('enabled');
-    if (enabledStr == null) {
-      return {
-        'ok': false,
-        'error': 'overlays: "enabled" parameter is required'
-      };
-    }
-    final bool? enabled = enabledStr == 'true'
-        ? true
-        : enabledStr == 'false'
-            ? false
-            : null;
-    if (enabled == null) {
-      return {
-        'ok': false,
-        'error': 'overlays: "enabled" must be "true" or "false", '
-            'got "$enabledStr"',
-      };
-    }
+    final enabled = parameters.asBoolRequired('enabled');
 
     setOverlaysEnabled(enabled);
 

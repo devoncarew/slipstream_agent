@@ -89,7 +89,7 @@ Failure:
 
 - **scroll** — finds a `Scrollable` in the element's subtree and calls
   `position.animateTo(pixels + delta)`. Required params: `direction` (`"up"`,
-  `"down"`, `"left"`, `"right"`) and `pixels` (logical pixels as a string).
+  `"down"`, `"left"`, `"right"`) and `pixels` (logical pixels as a double).
   Clamped to the scroll extent bounds.
 
 - **scroll_until_visible** — scrolls the `Scrollable` identified by
@@ -230,15 +230,15 @@ state. A frame rebuild is triggered after each change.
 
 **Currently managed overlays:**
 
-| Overlay | Mechanism |
-| ------- | --------- |
+| Overlay              | Mechanism                             |
+| -------------------- | ------------------------------------- |
 | Flutter debug banner | `WidgetsApp.debugAllowBannerOverride` |
 
 **Parameters:**
 
-| Name      | Type | Required | Description                                              |
-| --------- | ---- | -------- | -------------------------------------------------------- |
-| `enabled` | bool | yes      | `false` to hide all overlays; `true` to restore state    |
+| Name      | Type | Required | Description                                           |
+| --------- | ---- | -------- | ----------------------------------------------------- |
+| `enabled` | bool | yes      | `false` to hide all overlays; `true` to restore state |
 
 **Returns:**
 
