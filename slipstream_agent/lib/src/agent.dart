@@ -9,6 +9,7 @@ import 'finder.dart';
 import 'router_adapter.dart';
 import 'semantics.dart';
 import 'telemetry.dart';
+import 'version.dart';
 
 /// The internal implementation of the Slipstream agent.
 class Agent {
@@ -295,7 +296,7 @@ class Agent {
   Future<Map<String, Object?>> _pingExtension(
       ExtensionParameters parameters) async {
     return {
-      'version': '0.1.0',
+      'version': packageVersion,
     };
   }
 

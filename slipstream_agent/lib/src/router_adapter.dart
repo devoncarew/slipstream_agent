@@ -36,17 +36,17 @@ abstract class RouterAdapter {
 /// SlipstreamAgent.init(router: GoRouterAdapter(_router));
 /// ```
 class GoRouterAdapter extends RouterAdapter {
+  final RouterConfig _router;
+
   /// The [GoRouter] instance. Declared as `dynamic` to avoid a hard
   /// compile-time dependency on the `go_router` package. At runtime, this must
   /// be a `GoRouter` with a `.go(String path)` method and a `.state.uri`
-  /// getter, and it must implement [Listenable].
+  /// getter.
   GoRouterAdapter(this._router) {
-    // GoRouter extends ChangeNotifier, so it is a Listenable. We cast via the
-    // Flutter-provided interface rather than importing go_router.
-    (_router as Listenable).addListener(_onRouteChanged);
+    // We reference via the [RouterConfig] parent type rather than importing
+    // go_router.
+    _router.routeInformationProvider?.addListener(_onRouteChanged);
   }
-
-  final dynamic _router;
 
   void _onRouteChanged() {
     final path = currentPath();
@@ -59,7 +59,7 @@ class GoRouterAdapter extends RouterAdapter {
   void go(BuildContext context, String path) {
     // Calls GoRouter.go(path) dynamically — no import of go_router needed.
     // ignore: avoid_dynamic_calls
-    _router.go(path);
+    (_router as dynamic).go(path);
   }
 
   @override
@@ -67,7 +67,7 @@ class GoRouterAdapter extends RouterAdapter {
     try {
       // Calls GoRouter.state.uri.toString() dynamically.
       // ignore: avoid_dynamic_calls
-      return _router.state.uri.toString();
+      return (_router as dynamic).state.uri.toString();
     } catch (_) {
       return null;
     }
