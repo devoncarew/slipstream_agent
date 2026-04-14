@@ -27,8 +27,9 @@ Future<String?> tapElement(Element element) async {
     PointerUpEvent(position: position),
   );
 
-  // Yield to the event loop so gesture recognizers and frame callbacks fire.
-  await Future<void>.delayed(Duration.zero);
+  // Yield to the microtask queue so gesture recognizers fire synchronously
+  // before we return.
+  await Future<void>.microtask(() {});
   return null;
 }
 
@@ -78,13 +79,11 @@ Future<String?> scrollElement(
     return 'scroll: unknown direction "$direction" — use up, down, left, right';
   }
 
-  await state.position.animateTo(
+  state.position.jumpTo(
     (state.position.pixels + delta).clamp(
       state.position.minScrollExtent,
       state.position.maxScrollExtent,
     ),
-    duration: const Duration(milliseconds: 300),
-    curve: Curves.easeInOut,
   );
   return null;
 }
@@ -119,13 +118,11 @@ Future<String?> scrollUntilVisible({
         final double current = scrollState.position.pixels;
         final double target = revealed.offset;
         if ((current - target).abs() < 1.0) break; // already visible
-        await scrollState.position.animateTo(
+        scrollState.position.jumpTo(
           target.clamp(
             scrollState.position.minScrollExtent,
             scrollState.position.maxScrollExtent,
           ),
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
         );
         break;
       }
@@ -136,11 +133,7 @@ Future<String?> scrollUntilVisible({
       scrollState.position.maxScrollExtent,
     );
     if (next == scrollState.position.pixels) break; // hit the end
-    await scrollState.position.animateTo(
-      next,
-      duration: const Duration(milliseconds: 200),
-      curve: Curves.easeInOut,
-    );
+    scrollState.position.jumpTo(next);
     // Wait for a frame so newly-scrolled widgets lay out.
     await SchedulerBinding.instance.endOfFrame;
   }
