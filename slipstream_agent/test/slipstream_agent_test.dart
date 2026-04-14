@@ -206,7 +206,8 @@ void main() {
       expect(changed, equals('world'));
     });
 
-    testWidgets('does not fire onChanged when text is unchanged', (tester) async {
+    testWidgets('does not fire onChanged when text is unchanged',
+        (tester) async {
       var callCount = 0;
       final controller = TextEditingController(text: 'same');
 
@@ -228,7 +229,8 @@ void main() {
       expect(callCount, equals(0));
     });
 
-    testWidgets('returns error when element has no EditableText', (tester) async {
+    testWidgets('returns error when element has no EditableText',
+        (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
@@ -294,8 +296,7 @@ void main() {
       await scrollElement(element!, direction: 'down', pixels: 600);
       await tester.pump();
 
-      final error =
-          await scrollElement(element, direction: 'up', pixels: 300);
+      final error = await scrollElement(element, direction: 'up', pixels: 300);
       await tester.pump();
 
       expect(error, isNull);
@@ -469,8 +470,7 @@ void main() {
 
       expect(nodes, isNotNull);
 
-      final buttonNodes =
-          nodes!.where((n) => n['role'] == 'button').toList();
+      final buttonNodes = nodes!.where((n) => n['role'] == 'button').toList();
       expect(buttonNodes, isNotEmpty);
 
       final btn = buttonNodes.first;
