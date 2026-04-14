@@ -1,8 +1,8 @@
 # slipstream_agent
 
 This repo contains two packages that together support the
-[Slipstream Flutter agent tools](https://github.com/devoncarew/flutter-agent-tools)
-MCP plugin.
+[Flutter Slipstream](https://github.com/devoncarew/flutter-slipstream) agent
+tools.
 
 ## Packages
 

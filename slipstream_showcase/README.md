@@ -1,7 +1,7 @@
 # slipstream_showcase
 
 A sample Flutter app used for integration testing of the
-[flutter-slipstream](https://github.com/devoncarew/flutter-agent-tools) MCP
+[flutter-slipstream](https://github.com/devoncarew/flutter-slipstream) MCP
 plugin. The app is themed as a "Stellar Catalog" — a lightweight astronomy
 browser — to make it feel like a real application rather than a bare widget
 demo.
