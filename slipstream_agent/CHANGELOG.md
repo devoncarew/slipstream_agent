@@ -6,6 +6,11 @@
   extensions log automatically; the MCP server calls `ext.slipstream.log` for
   out-of-process operations (reload, screenshot, evaluate, etc.). Each chip is
   shown for 3 seconds then removed.
+- Ghost overlay now installs on the first `ext.slipstream.ping` (or any log
+  call), permanently replacing the Flutter debug banner with a "slipstream"
+  banner in the top-right corner. `ext.slipstream.overlays` now only toggles
+  the ghost overlay visibility (banner + chips) and no longer saves/restores
+  `WidgetsApp.debugAllowBannerOverride`.
 
 ## 1.0.0
 

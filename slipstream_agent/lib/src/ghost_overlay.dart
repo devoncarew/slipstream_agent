@@ -5,15 +5,21 @@ import 'package:flutter/widgets.dart';
 // ---------------------------------------------------------------------------
 // Public API
 
-/// Displays a transient command log above the app's widget tree.
+/// Displays a transient command log and a "slipstream" banner above the app's
+/// widget tree.
 ///
-/// Call [log] to add an entry. The overlay locates the first [OverlayState]
-/// in the widget tree and inserts itself lazily — no app-side setup is
-/// required beyond calling [SlipstreamAgent.init].
+/// Call [install] once (e.g. on the first [ext.slipstream.ping]) to disable
+/// the Flutter debug banner and show the Slipstream banner. Call [log] to add
+/// command-log entries. Call [setVisible] to hide/show everything (e.g. before
+/// taking a screenshot).
 ///
-/// Each entry is shown for [_displayDuration] and then removed. When the
+/// The overlay locates the first [OverlayState] in the widget tree and inserts
+/// itself lazily — no app-side setup is required beyond calling
+/// [SlipstreamAgent.init].
+///
+/// Each log entry is shown for [_displayDuration] and then removed. When the
 /// overlay has been removed from the tree (e.g. after a hot restart), it
-/// reinstalls itself on the next [log] call.
+/// reinstalls itself on the next [log] or [install] call.
 class GhostOverlay {
   GhostOverlay._();
 
@@ -26,24 +32,39 @@ class GhostOverlay {
   /// The queue of (command, details) pairs waiting to be handed to the widget.
   static final List<(String, String?)> _pending = [];
 
-  /// Controls whether the ghost overlay is visible.
+  static bool _visible = true;
+
+  /// Installs the ghost overlay and permanently disables the Flutter debug
+  /// banner for the life of the Slipstream session.
   ///
-  /// Set to `false` to suppress new entries and clear any currently visible
-  /// chips (e.g. before taking a screenshot). Set back to `true` to resume
-  /// normal display. Mirrors the role of [WidgetsApp.debugAllowBannerOverride]
-  /// for the debug banner.
-  static bool overlayEnabled = true;
+  /// Safe to call multiple times — subsequent calls are no-ops unless the
+  /// overlay was removed from the tree (e.g. after a hot restart).
+  static void install() {
+    _ensureInstalled();
+  }
 
   /// Shows [command] (and optional [details]) in the command log overlay.
   ///
-  /// If [overlayEnabled] is `false` the call is silently ignored.
-  /// If the overlay is not yet in the tree it is installed first; any entries
-  /// that arrive before the first build are queued and replayed once the
-  /// widget state is available.
+  /// If the overlay is hidden (see [setVisible]) the entry is silently
+  /// ignored. If the overlay is not yet in the tree it is installed first;
+  /// any entries that arrive before the first build are queued and replayed
+  /// once the widget state is available.
   static void log(String command, {String? details}) {
-    if (!overlayEnabled) return;
+    if (!_visible) return;
     _pending.add((command, details));
     _ensureInstalled();
+  }
+
+  /// Shows or hides the entire ghost overlay (banner + chips).
+  ///
+  /// Pass `false` before taking a screenshot to remove all Slipstream UI;
+  /// pass `true` to restore it.
+  static void setVisible(bool visible) {
+    _visible = visible;
+    if (!visible) {
+      _pending.clear();
+    }
+    _key.currentState?.setVisible(visible);
   }
 
   /// Clears all currently visible chips immediately.
@@ -67,6 +88,9 @@ class GhostOverlay {
       WidgetsBinding.instance.addPostFrameCallback((_) => _ensureInstalled());
       return;
     }
+
+    // Permanently disable the Flutter debug banner for this session.
+    WidgetsApp.debugAllowBannerOverride = false;
 
     _entry = OverlayEntry(builder: (_) => _GhostOverlayWidget(key: _key));
     overlay.insert(_entry!);
@@ -103,6 +127,10 @@ class GhostOverlay {
 // ---------------------------------------------------------------------------
 // Widget
 
+// Slipstream blue.
+const Color ghostOverlayColor = Color(0xFF1565C0);
+// const Color ghostOverlayColor = Color(0xA01565C0);
+
 class _GhostOverlayWidget extends StatefulWidget {
   const _GhostOverlayWidget({super.key});
 
@@ -122,21 +150,53 @@ class _LogEntry {
 
 class _GhostOverlayState extends State<_GhostOverlayWidget> {
   final List<_LogEntry> _entries = [];
+  final Map<int, GlobalKey<_EntryChipState>> _chipKeys = {};
   final List<Timer> _timers = [];
+
+  bool _visible = true;
+
+  void setVisible(bool visible) {
+    if (!mounted) return;
+    if (visible == _visible) return;
+    if (!visible) {
+      for (final t in _timers) {
+        t.cancel();
+      }
+      _timers.clear();
+    }
+    setState(() {
+      _visible = visible;
+      if (!visible) {
+        _entries.clear();
+        _chipKeys.clear();
+      }
+    });
+  }
 
   void addEntry(String command, String? details) {
     if (!mounted) return;
     final entry = _LogEntry(command: command, details: details);
+    final key = GlobalKey<_EntryChipState>();
     setState(() {
-      _entries.add(entry);
-      if (_entries.length > GhostOverlay._maxEntries) {
-        _entries.removeAt(0);
+      if (_entries.length >= GhostOverlay._maxEntries) {
+        final oldest = _entries.removeAt(0);
+        _chipKeys.remove(oldest.id);
       }
+      _entries.add(entry);
+      _chipKeys[entry.id] = key;
     });
     _timers.add(Timer(GhostOverlay._displayDuration, () {
       if (!mounted) return;
-      setState(() => _entries.removeWhere((e) => e.id == entry.id));
+      _chipKeys[entry.id]?.currentState?.triggerExit();
     }));
+  }
+
+  void _onChipExited(_LogEntry entry) {
+    if (!mounted) return;
+    setState(() {
+      _entries.removeWhere((e) => e.id == entry.id);
+      _chipKeys.remove(entry.id);
+    });
   }
 
   void clearEntries() {
@@ -145,7 +205,10 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       t.cancel();
     }
     _timers.clear();
-    setState(() => _entries.clear());
+    setState(() {
+      _entries.clear();
+      _chipKeys.clear();
+    });
   }
 
   @override
@@ -158,56 +221,152 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (_entries.isEmpty) return const SizedBox.shrink();
+    if (!_visible) return const SizedBox.shrink();
 
     // OverlayEntry builds inside the Overlay's Stack, so Positioned works
     // directly here. Use MediaQuery for safe-area insets when available.
     final bottomInset = MediaQuery.maybePaddingOf(context)?.bottom ?? 0.0;
 
-    return Positioned(
-      bottom: bottomInset + 12,
-      right: 12,
-      child: IgnorePointer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final entry in _entries) _EntryChip(entry: entry),
-          ],
-        ),
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          // Slipstream banner — replaces the Flutter debug banner in the
+          // top-right corner.
+          Positioned.fill(
+            child: CustomPaint(
+              painter: BannerPainter(
+                message: 'slipstream',
+                textDirection: TextDirection.ltr,
+                layoutDirection: TextDirection.ltr,
+                location: BannerLocation.topEnd,
+                color: ghostOverlayColor,
+              ),
+            ),
+          ),
+          // Command-log chip stack in the bottom-right corner.
+          if (_entries.isNotEmpty)
+            Positioned(
+              bottom: bottomInset + 24,
+              right: 12,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final entry in _entries)
+                    _EntryChip(
+                      key: _chipKeys[entry.id],
+                      entry: entry,
+                      onExited: () => _onChipExited(entry),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
 }
 
-class _EntryChip extends StatelessWidget {
-  const _EntryChip({required this.entry});
+class _EntryChip extends StatefulWidget {
+  const _EntryChip({super.key, required this.entry, required this.onExited});
 
   final _LogEntry entry;
+  final VoidCallback onExited;
+
+  @override
+  State<_EntryChip> createState() => _EntryChipState();
+}
+
+class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
+  static const Duration _animDuration = Duration(milliseconds: 280);
+
+  late final AnimationController _enterController;
+  late final AnimationController _exitController;
+  late final Animation<Offset> _enterSlide;
+  late final Animation<Offset> _exitSlide;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _enterController = AnimationController(vsync: this, duration: _animDuration)
+      ..forward();
+    _exitController = AnimationController(vsync: this, duration: _animDuration);
+
+    _enterSlide = Tween<Offset>(
+      begin: const Offset(1.5, 0),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
+
+    _exitSlide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(1.5, 0),
+    ).animate(CurvedAnimation(parent: _exitController, curve: Curves.easeIn));
+  }
+
+  /// Plays the exit animation then calls [_EntryChip.onExited].
+  void triggerExit() {
+    if (!mounted) return;
+    if (_exitController.isAnimating || _exitController.isCompleted) return;
+    _exitController.forward().then((_) {
+      if (mounted) widget.onExited();
+    });
+  }
+
+  @override
+  void dispose() {
+    _enterController.dispose();
+    _exitController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final label = entry.details != null
-        ? '${entry.command}: ${entry.details}'
-        : entry.command;
+    final label = widget.entry.details != null
+        ? '${widget.entry.command}: ${widget.entry.details}'
+        : widget.entry.command;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 4),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          // Slipstream blue, semi-opaque so the app beneath remains visible.
-          color: const Color(0xE01565C0),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFFFFFFFF),
-              fontSize: 13,
-              fontWeight: FontWeight.normal,
-              decoration: TextDecoration.none,
+      padding: const EdgeInsets.only(top: 8),
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_enterController, _exitController]),
+          builder: (context, child) => FractionalTranslation(
+            translation: _enterSlide.value + _exitSlide.value,
+            child: child,
+          ),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color.alphaBlend(const Color(0x28FFFFFF), ghostOverlayColor),
+                  ghostOverlayColor,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(6),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x55000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFFFFFFF),
+                  fontSize: 12 * 0.85,
+                  fontWeight: FontWeight.w900,
+                  decoration: TextDecoration.none,
+                ),
+              ),
             ),
           ),
         ),

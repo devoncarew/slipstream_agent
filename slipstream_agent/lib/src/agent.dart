@@ -308,6 +308,7 @@ class Agent {
 
   Future<Map<String, Object?>> _pingExtension(
       ExtensionParameters parameters) async {
+    GhostOverlay.install();
     return {
       'version': packageVersion,
     };
