@@ -262,6 +262,40 @@ or
 
 ---
 
+## `ext.slipstream.log`
+
+Logs an agent command to the ghost overlay command log. The Slipstream MCP
+server calls this for operations that do not flow through an in-process
+extension (e.g. hot reload, screenshot, evaluate). In-process extensions
+(`perform_action`, `navigate`, etc.) log automatically.
+
+**Parameters:**
+
+| Name      | Type   | Required | Description                                                      |
+| --------- | ------ | -------- | ---------------------------------------------------------------- |
+| `command` | String | yes      | Short label: `"reload"`, `"screenshot"`, `"evaluate"`, etc.      |
+| `details` | String | no       | Optional detail appended after a colon: a path, text value, etc. |
+
+**Display format:** `command` when no details; `command: details` otherwise.
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+**Examples of MCP server usage:**
+
+| MCP tool          | Suggested call                                           |
+| ----------------- | -------------------------------------------------------- |
+| `reload`          | `log(command: "reload", details: "300ms")`               |
+| `take_screenshot` | `log(command: "screenshot")`                             |
+| `evaluate`        | `log(command: "evaluate", details: "widget.toString()")` |
+| `navigate`        | logged automatically by `ext.slipstream.navigate`        |
+| `perform_tap`     | logged automatically by `ext.slipstream.perform_action`  |
+
+---
+
 ## Events
 
 Events are posted to the VM service `Extension` stream via
