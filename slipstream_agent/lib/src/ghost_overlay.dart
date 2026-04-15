@@ -29,8 +29,8 @@ class GhostOverlay {
   static final GlobalKey<_GhostOverlayState> _key = GlobalKey();
   static OverlayEntry? _entry;
 
-  /// The queue of (command, details) pairs waiting to be handed to the widget.
-  static final List<(String, String?)> _pending = [];
+  /// The queue of entries waiting to be handed to the widget.
+  static final List<_LogEntry> _pending = [];
 
   static bool _visible = true;
 
@@ -45,13 +45,32 @@ class GhostOverlay {
 
   /// Shows [command] (and optional [details]) in the command log overlay.
   ///
-  /// If the overlay is hidden (see [setVisible]) the entry is silently
-  /// ignored. If the overlay is not yet in the tree it is installed first;
-  /// any entries that arrive before the first build are queued and replayed
-  /// once the widget state is available.
-  static void log(String command, {String? details}) {
+  /// [kind] hints which icon to display: `"peek"`, `"poke"`, `"reload"`, or
+  /// `"screenshot"`. [finder] + [finderValue] identify a widget of interest
+  /// for visualizations. [viz] names an extra visual effect: `"flash"`,
+  /// `"outline"`, `"layout"`, or `"semantics"`.
+  ///
+  /// If the overlay is hidden (see [setVisible]) the call is silently ignored.
+  /// If the overlay is not yet in the tree it is installed first; any entries
+  /// that arrive before the first build are queued and replayed once the
+  /// widget state is available.
+  static void log(
+    String command, {
+    String? details,
+    String? kind,
+    String? finder,
+    String? finderValue,
+    String? viz,
+  }) {
     if (!_visible) return;
-    _pending.add((command, details));
+    _pending.add(_LogEntry(
+      command: command,
+      details: details,
+      kind: kind,
+      finder: finder,
+      finderValue: finderValue,
+      viz: viz,
+    ));
     _ensureInstalled();
   }
 
@@ -102,8 +121,8 @@ class GhostOverlay {
   static void _flushPending() {
     final state = _key.currentState;
     if (state == null || _pending.isEmpty) return;
-    for (final (command, details) in _pending) {
-      state.addEntry(command, details);
+    for (final entry in _pending) {
+      state.addEntry(entry);
     }
     _pending.clear();
   }
@@ -141,11 +160,30 @@ class _GhostOverlayWidget extends StatefulWidget {
 class _LogEntry {
   static int _nextId = 0;
 
-  _LogEntry({required this.command, this.details}) : id = _nextId++;
+  _LogEntry({
+    required this.command,
+    this.details,
+    this.kind,
+    this.finder,
+    this.finderValue,
+    this.viz,
+  }) : id = _nextId++;
 
   final int id;
   final String command;
   final String? details;
+
+  /// Icon category hint: `"peek"`, `"poke"`, `"reload"`, or `"screenshot"`.
+  final String? kind;
+
+  /// Finder type for the widget of interest (same values as `perform_action`).
+  final String? finder;
+
+  /// Finder value for the widget of interest.
+  final String? finderValue;
+
+  /// Extra visualization: `"flash"`, `"outline"`, `"layout"`, or `"semantics"`.
+  final String? viz;
 }
 
 class _GhostOverlayState extends State<_GhostOverlayWidget> {
@@ -173,9 +211,8 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
     });
   }
 
-  void addEntry(String command, String? details) {
+  void addEntry(_LogEntry entry) {
     if (!mounted) return;
-    final entry = _LogEntry(command: command, details: details);
     final key = GlobalKey<_EntryChipState>();
     setState(() {
       if (_entries.length >= GhostOverlay._maxEntries) {

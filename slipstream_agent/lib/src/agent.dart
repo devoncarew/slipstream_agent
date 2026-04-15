@@ -164,13 +164,23 @@ class Agent {
     String? error;
     switch (action) {
       case 'tap':
-        GhostOverlay.log('tap', details: finderValue);
+        GhostOverlay.log('tap',
+            details: finderValue,
+            kind: 'poke',
+            finder: finder,
+            finderValue: finderValue,
+            viz: 'outline');
         error = await tapElement(element);
       case 'set_text':
         if (text == null) {
           error = 'interact: "text" is required for the set_text action';
         } else {
-          GhostOverlay.log('set text', details: '"$text"');
+          GhostOverlay.log('set text',
+              details: '"$text"',
+              kind: 'poke',
+              finder: finder,
+              finderValue: finderValue,
+              viz: 'outline');
           error = setTextInElement(element, text);
         }
       case 'scroll':
@@ -179,7 +189,12 @@ class Agent {
         } else if (pixels == null) {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
-          GhostOverlay.log('scroll', details: '$direction ${pixels}px');
+          GhostOverlay.log('scroll',
+              details: '$direction ${pixels}px',
+              kind: 'poke',
+              finder: finder,
+              finderValue: finderValue,
+              viz: 'outline');
           error = await scrollElement(
             element,
             direction: direction,
@@ -201,7 +216,12 @@ class Agent {
                 'interact: no scrollable found for scrollFinder="$scrollFinder"'
                 ' value="$scrollFinderValue"';
           } else {
-            GhostOverlay.log('scroll to', details: scrollFinderValue);
+            GhostOverlay.log('scroll to',
+                details: finderValue,
+                kind: 'poke',
+                finder: finder,
+                finderValue: finderValue,
+                viz: 'outline');
             error = await scrollUntilVisible(
               targetElement: element,
               scrollableElement: scrollable,
@@ -232,7 +252,7 @@ class Agent {
 
   Future<Map<String, Object?>> _getRouteExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('get route');
+    GhostOverlay.log('get route', kind: 'peek');
     final path = _router?.currentPath();
     if (path == null) {
       return {
@@ -287,7 +307,7 @@ class Agent {
     }
 
     try {
-      GhostOverlay.log('navigate', details: path);
+      GhostOverlay.log('navigate', details: path, kind: 'poke');
       _router!.go(root, path);
       return {'ok': true};
     } catch (e) {
@@ -322,7 +342,7 @@ class Agent {
 
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('enable semantics');
+    GhostOverlay.log('enable semantics', kind: 'peek');
     RendererBinding.instance.ensureSemantics();
     await _waitForNextFrame();
     return {};
@@ -356,7 +376,7 @@ class Agent {
 
   Future<Map<String, Object?>> _getSemanticsExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('get semantics');
+    GhostOverlay.log('get semantics', kind: 'peek', viz: 'semantics');
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
     return {'ok': true, 'nodes': nodes};
@@ -392,7 +412,8 @@ class Agent {
       ExtensionParameters parameters) async {
     final enabled = parameters.asBoolRequired('enabled');
 
-    GhostOverlay.log('overlays', details: enabled ? 'show' : 'hide');
+    // This command shouldn't have an overlay message.
+    // GhostOverlay.log('overlays', details: enabled ? 'show' : 'hide');
     setOverlaysEnabled(enabled);
 
     await _waitForNextFrame();
@@ -411,7 +432,8 @@ class Agent {
       ParameterDescription(
         name: 'command',
         type: 'String',
-        description: 'Short label for the command, e.g. "reload", "screenshot".',
+        description:
+            'Short label for the command, e.g. "reload", "screenshot".',
         required: true,
       ),
       ParameterDescription(
@@ -420,10 +442,35 @@ class Agent {
         description: 'Optional detail appended after a colon, '
             'e.g. a route path or text value.',
       ),
+      ParameterDescription(
+        name: 'kind',
+        type: 'String',
+        description: 'Icon category hint: "peek", "poke", "reload", or '
+            '"screenshot".',
+      ),
+      ParameterDescription(
+        name: 'finder',
+        type: 'String',
+        description: 'Finder type for the widget of interest '
+            '("byKey", "byType", "byText", "bySemanticsLabel"). '
+            'Used with viz="outline" or viz="layout".',
+      ),
+      ParameterDescription(
+        name: 'finderValue',
+        type: 'String',
+        description: 'Value to match against the chosen finder.',
+      ),
+      ParameterDescription(
+        name: 'viz',
+        type: 'String',
+        description: 'Extra visualization: "flash" (full-screen tint), '
+            '"outline" (widget bounding box), '
+            '"layout" (bounding box with layout annotations), or '
+            '"semantics" (all semantics node outlines).',
+      ),
     ],
     returns: [
-      ReturnDescription(
-          name: 'ok', type: 'bool', description: 'Always true.'),
+      ReturnDescription(name: 'ok', type: 'bool', description: 'Always true.'),
     ],
   );
 
@@ -431,7 +478,16 @@ class Agent {
       ExtensionParameters parameters) async {
     final String command = parameters.asStringRequired('command');
     final String? details = parameters.asString('details');
-    GhostOverlay.log(command, details: details);
+    final String? kind = parameters.asString('kind');
+    final String? finder = parameters.asString('finder');
+    final String? finderValue = parameters.asString('finderValue');
+    final String? viz = parameters.asString('viz');
+    GhostOverlay.log(command,
+        details: details,
+        kind: kind,
+        finder: finder,
+        finderValue: finderValue,
+        viz: viz);
     return {'ok': true};
   }
 
