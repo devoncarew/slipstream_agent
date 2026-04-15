@@ -166,7 +166,7 @@ class Agent {
       case 'tap':
         GhostOverlay.log('tap',
             details: finderValue,
-            kind: 'poke',
+            kind: 'interact',
             finder: finder,
             finderValue: finderValue,
             viz: 'outline');
@@ -177,7 +177,7 @@ class Agent {
         } else {
           GhostOverlay.log('set text',
               details: '"$text"',
-              kind: 'poke',
+              kind: 'interact',
               finder: finder,
               finderValue: finderValue,
               viz: 'outline');
@@ -191,7 +191,7 @@ class Agent {
         } else {
           GhostOverlay.log('scroll',
               details: '$direction ${pixels}px',
-              kind: 'poke',
+              kind: 'interact',
               finder: finder,
               finderValue: finderValue,
               viz: 'outline');
@@ -218,7 +218,7 @@ class Agent {
           } else {
             GhostOverlay.log('scroll to',
                 details: finderValue,
-                kind: 'poke',
+                kind: 'interact',
                 finder: finder,
                 finderValue: finderValue,
                 viz: 'outline');
@@ -252,7 +252,7 @@ class Agent {
 
   Future<Map<String, Object?>> _getRouteExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('get route', kind: 'peek');
+    GhostOverlay.log('get route', kind: 'read');
     final path = _router?.currentPath();
     if (path == null) {
       return {
@@ -307,7 +307,7 @@ class Agent {
     }
 
     try {
-      GhostOverlay.log('navigate', details: path, kind: 'poke');
+      GhostOverlay.log('navigate', details: path, kind: 'interact');
       _router!.go(root, path);
       return {'ok': true};
     } catch (e) {
@@ -342,7 +342,7 @@ class Agent {
 
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('enable semantics', kind: 'peek');
+    GhostOverlay.log('enable semantics', kind: 'read');
     RendererBinding.instance.ensureSemantics();
     await _waitForNextFrame();
     return {};
@@ -376,7 +376,7 @@ class Agent {
 
   Future<Map<String, Object?>> _getSemanticsExtension(
       ExtensionParameters parameters) async {
-    GhostOverlay.log('get semantics', kind: 'peek', viz: 'semantics');
+    GhostOverlay.log('get semantics', kind: 'read', viz: 'semantics');
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
     return {'ok': true, 'nodes': nodes};
@@ -445,7 +445,7 @@ class Agent {
       ParameterDescription(
         name: 'kind',
         type: 'String',
-        description: 'Icon category hint: "peek", "poke", "reload", or '
+        description: 'Icon category hint: "read", "interact", "reload", or '
             '"screenshot".',
       ),
       ParameterDescription(

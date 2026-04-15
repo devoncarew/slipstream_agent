@@ -45,7 +45,7 @@ class GhostOverlay {
 
   /// Shows [command] (and optional [details]) in the command log overlay.
   ///
-  /// [kind] hints which icon to display: `"peek"`, `"poke"`, `"reload"`, or
+  /// [kind] hints which icon to display: `"read"`, `"interact"`, `"reload"`, or
   /// `"screenshot"`. [finder] + [finderValue] identify a widget of interest
   /// for visualizations. [viz] names an extra visual effect: `"flash"`,
   /// `"outline"`, `"layout"`, or `"semantics"`.
@@ -173,7 +173,7 @@ class _LogEntry {
   final String command;
   final String? details;
 
-  /// Icon category hint: `"peek"`, `"poke"`, `"reload"`, or `"screenshot"`.
+  /// Icon category hint: `"read"`, `"interact"`, `"reload"`, or `"screenshot"`.
   final String? kind;
 
   /// Finder type for the widget of interest (same values as `perform_action`).
