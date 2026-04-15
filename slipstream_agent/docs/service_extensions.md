@@ -219,7 +219,7 @@ are true screen-space coordinates.
 
 ---
 
-## `ext.slipstream.overlays` (added in v1.0.0)
+## `ext.slipstream.overlays` (since v1.0.0)
 
 Shows or hides all Slipstream-managed overlays. Designed for use cases like
 screenshots where overlays should be temporarily hidden.
@@ -262,7 +262,7 @@ or
 
 ---
 
-## `ext.slipstream.log` (added in v1.1.0)
+## `ext.slipstream.log` (since v1.1.0)
 
 Logs an agent command to the ghost overlay command log. The Slipstream MCP
 server calls this for operations that do not flow through an in-process

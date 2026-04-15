@@ -1,6 +1,10 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart' show Icons;
 import 'package:flutter/widgets.dart';
+
+import 'finder.dart';
+import 'semantics.dart';
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -17,20 +21,21 @@ import 'package:flutter/widgets.dart';
 /// itself lazily — no app-side setup is required beyond calling
 /// [SlipstreamAgent.init].
 ///
-/// Each log entry is shown for [_displayDuration] and then removed. When the
+/// Each log entry is shown for [_chipDuration] and then removed. When the
 /// overlay has been removed from the tree (e.g. after a hot restart), it
 /// reinstalls itself on the next [log] or [install] call.
 class GhostOverlay {
   GhostOverlay._();
 
-  static const Duration _displayDuration = Duration(seconds: 3);
-  static const int _maxEntries = 5;
+  static const Duration _chipDuration = Duration(seconds: 3);
+  static const Duration _semanticsDuration = Duration(seconds: 3);
+  static const Duration _outlineDuration = Duration(milliseconds: 900);
 
   static final GlobalKey<_GhostOverlayState> _key = GlobalKey();
   static OverlayEntry? _entry;
 
   /// The queue of entries waiting to be handed to the widget.
-  static final List<_LogEntry> _pending = [];
+  static final List<_LogMessage> _pending = [];
 
   static bool _visible = true;
 
@@ -63,7 +68,7 @@ class GhostOverlay {
     String? viz,
   }) {
     if (!_visible) return;
-    _pending.add(_LogEntry(
+    _pending.add(_LogMessage(
       command: command,
       details: details,
       kind: kind,
@@ -122,7 +127,7 @@ class GhostOverlay {
     final state = _key.currentState;
     if (state == null || _pending.isEmpty) return;
     for (final entry in _pending) {
-      state.addEntry(entry);
+      state.addLogMessage(entry);
     }
     _pending.clear();
   }
@@ -148,7 +153,6 @@ class GhostOverlay {
 
 // Slipstream blue.
 const Color ghostOverlayColor = Color(0xFF1565C0);
-// const Color ghostOverlayColor = Color(0xA01565C0);
 
 class _GhostOverlayWidget extends StatefulWidget {
   const _GhostOverlayWidget({super.key});
@@ -157,10 +161,10 @@ class _GhostOverlayWidget extends StatefulWidget {
   State<_GhostOverlayWidget> createState() => _GhostOverlayState();
 }
 
-class _LogEntry {
+class _LogMessage {
   static int _nextId = 0;
 
-  _LogEntry({
+  _LogMessage({
     required this.command,
     this.details,
     this.kind,
@@ -186,12 +190,19 @@ class _LogEntry {
   final String? viz;
 }
 
+// ---------------------------------------------------------------------------
+// Ghost overlay state
+
 class _GhostOverlayState extends State<_GhostOverlayWidget> {
-  final List<_LogEntry> _entries = [];
+  final List<_LogMessage> _entries = [];
   final Map<int, GlobalKey<_EntryChipState>> _chipKeys = {};
   final List<Timer> _timers = [];
 
   bool _visible = true;
+
+  final _flashKey = GlobalKey<_FlashOverlayState>();
+  final _outlineKey = GlobalKey<_OutlineOverlayState>();
+  final _semanticsKey = GlobalKey<_SemanticsOverlayState>();
 
   void setVisible(bool visible) {
     if (!mounted) return;
@@ -201,6 +212,9 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         t.cancel();
       }
       _timers.clear();
+      _flashKey.currentState?.reset();
+      _outlineKey.currentState?.reset();
+      _semanticsKey.currentState?.reset();
     }
     setState(() {
       _visible = visible;
@@ -211,24 +225,78 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
     });
   }
 
-  void addEntry(_LogEntry entry) {
+  void addLogMessage(_LogMessage entry) {
     if (!mounted) return;
+
+    // Capture currently visible chips — they'll be bumped out immediately.
+    final toExit = List.of(_entries);
+
     final key = GlobalKey<_EntryChipState>();
     setState(() {
-      if (_entries.length >= GhostOverlay._maxEntries) {
-        final oldest = _entries.removeAt(0);
-        _chipKeys.remove(oldest.id);
-      }
       _entries.add(entry);
       _chipKeys[entry.id] = key;
     });
-    _timers.add(Timer(GhostOverlay._displayDuration, () {
+
+    // Bump any existing chip out now rather than waiting for its timer.
+    for (final existing in toExit) {
+      _chipKeys[existing.id]?.currentState?.triggerExit();
+    }
+
+    if (entry.viz == 'flash') _flashKey.currentState?.trigger();
+    if (entry.viz == 'outline' &&
+        entry.finder != null &&
+        entry.finderValue != null) {
+      _triggerOutline(entry.finder!, entry.finderValue!);
+    }
+    if (entry.viz == 'semantics') _triggerSemantics();
+
+    _timers.add(Timer(GhostOverlay._chipDuration, () {
       if (!mounted) return;
       _chipKeys[entry.id]?.currentState?.triggerExit();
     }));
   }
 
-  void _onChipExited(_LogEntry entry) {
+  void _triggerOutline(String finder, String finderValue) {
+    final el = findElement(finder: finder, value: finderValue);
+    final box = el?.renderObject;
+    if (box is RenderBox && box.hasSize) {
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      _outlineKey.currentState?.trigger(rect);
+    }
+  }
+
+  void _triggerSemantics() {
+    final (nodes, _) = getSemanticsNodes();
+    if (nodes == null || nodes.isEmpty) return;
+
+    final rects = [
+      for (final node in nodes)
+        (
+          rect: node.screenRect,
+          label: _semanticsLabel(node),
+        ),
+    ];
+
+    // Sort largest area first so that container nodes are painted behind
+    // smaller, more specific nodes in the Stack.
+    rects.sort((a, b) {
+      final aArea = a.rect.width * a.rect.height;
+      final bArea = b.rect.width * b.rect.height;
+      return bArea.compareTo(aArea);
+    });
+
+    _semanticsKey.currentState?.trigger(rects);
+  }
+
+  static String _semanticsLabel(SemanticsNodeInfo node) {
+    final label = node.label.trim();
+    if (label.isNotEmpty) {
+      return label.length > 18 ? '${label.substring(0, 16)}…' : label;
+    }
+    return node.role ?? 'text';
+  }
+
+  void _onChipExited(_LogMessage entry) {
     if (!mounted) return;
     setState(() {
       _entries.removeWhere((e) => e.id == entry.id);
@@ -242,6 +310,8 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       t.cancel();
     }
     _timers.clear();
+    _outlineKey.currentState?.reset();
+    _semanticsKey.currentState?.reset();
     setState(() {
       _entries.clear();
       _chipKeys.clear();
@@ -260,15 +330,18 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   Widget build(BuildContext context) {
     if (!_visible) return const SizedBox.shrink();
 
-    // OverlayEntry builds inside the Overlay's Stack, so Positioned works
-    // directly here. Use MediaQuery for safe-area insets when available.
     final bottomInset = MediaQuery.maybePaddingOf(context)?.bottom ?? 0.0;
 
     return IgnorePointer(
       child: Stack(
         children: [
-          // Slipstream banner — replaces the Flutter debug banner in the
-          // top-right corner.
+          // Brief white full-screen tint for viz:"flash" entries.
+          _FlashOverlay(key: _flashKey),
+          // Bounding-box highlight for viz:"outline" entries.
+          _OutlineOverlay(key: _outlineKey),
+          // Per-node bounding boxes for viz:"semantics" entries.
+          _SemanticsOverlay(key: _semanticsKey),
+          // Slipstream banner — replaces the Flutter debug banner.
           Positioned.fill(
             child: CustomPaint(
               painter: BannerPainter(
@@ -280,14 +353,16 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
               ),
             ),
           ),
-          // Command-log chip stack in the bottom-right corner.
+          // Command-log chips — share the same space; newer chips are
+          // painted in front of older ones.
           if (_entries.isNotEmpty)
             Positioned(
-              bottom: bottomInset + 24,
+              bottom: bottomInset + 36,
+              left: 12,
               right: 12,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                mainAxisSize: MainAxisSize.min,
+              child: Stack(
+                alignment: Alignment.center,
+                clipBehavior: Clip.none,
                 children: [
                   for (final entry in _entries)
                     _EntryChip(
@@ -304,10 +379,268 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Visualization widgets
+
+/// Brief full-screen white tint. Trigger with [trigger]; reset with [reset].
+class _FlashOverlay extends StatefulWidget {
+  const _FlashOverlay({super.key});
+
+  @override
+  State<_FlashOverlay> createState() => _FlashOverlayState();
+}
+
+class _FlashOverlayState extends State<_FlashOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    // Quick fade-in → brief hold → slow fade-out.
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 0.65), weight: 12), // ~72ms
+      TweenSequenceItem(tween: ConstantTween(0.65), weight: 13), // ~78ms hold
+      TweenSequenceItem(
+          tween: Tween(begin: 0.65, end: 0.0), weight: 75), // ~450ms
+    ]).animate(_controller);
+  }
+
+  void trigger() => _controller.forward(from: 0.0);
+  void reset() => _controller.reset();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        if (_controller.isDismissed) return const SizedBox.shrink();
+        return Positioned.fill(
+          child: ColoredBox(
+            color: Color.fromRGBO(255, 255, 255, _opacity.value),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Animated bounding-box highlight for a single widget.
+/// Call [trigger] with the screen-space rect; [reset] to hide immediately.
+class _OutlineOverlay extends StatefulWidget {
+  const _OutlineOverlay({super.key});
+
+  @override
+  State<_OutlineOverlay> createState() => _OutlineOverlayState();
+}
+
+class _OutlineOverlayState extends State<_OutlineOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  Rect? _rect;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: GhostOverlay._outlineDuration,
+    );
+    // Double flash: fade-in → fade-out → fade-in → fade-out.
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 1.0), weight: 15), // ~135ms
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 0.0), weight: 20), // ~180ms
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 1.0), weight: 15), // ~135ms
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 0.0), weight: 50), // ~450ms
+    ]).animate(_controller);
+  }
+
+  void trigger(Rect rect) {
+    setState(() => _rect = rect);
+    _controller.forward(from: 0.0);
+  }
+
+  void reset() {
+    _controller.reset();
+    if (mounted) setState(() => _rect = null);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rect = _rect;
+    if (rect == null) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        if (_controller.isDismissed) return const SizedBox.shrink();
+        return Positioned.fromRect(
+          rect: rect.inflate(3),
+          child: Opacity(
+            opacity: _opacity.value,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: ghostOverlayColor, width: 2),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Animated bounding-box overlay for all visible semantics nodes.
+/// Call [trigger] with the sorted rect+label list; [reset] to hide immediately.
+class _SemanticsOverlay extends StatefulWidget {
+  const _SemanticsOverlay({super.key});
+
+  @override
+  State<_SemanticsOverlay> createState() => _SemanticsOverlayState();
+}
+
+class _SemanticsOverlayState extends State<_SemanticsOverlay>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  List<({Rect rect, String label})> _rects = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: GhostOverlay._semanticsDuration,
+    );
+    // Fade-in → hold → fade-out.
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(
+          tween: Tween(begin: 0.0, end: 1.0), weight: 10), // ~300ms
+      TweenSequenceItem(tween: ConstantTween(1.0), weight: 60), // ~1800ms hold
+      TweenSequenceItem(
+          tween: Tween(begin: 1.0, end: 0.0), weight: 30), // ~900ms
+    ]).animate(_controller);
+  }
+
+  void trigger(List<({Rect rect, String label})> rects) {
+    setState(() => _rects = rects);
+    _controller.forward(from: 0.0);
+  }
+
+  void reset() {
+    _controller.reset();
+    if (mounted) setState(() => _rects = []);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_rects.isEmpty) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        if (_controller.isDismissed) return const SizedBox.shrink();
+        final opacity = _opacity.value;
+        return Stack(
+          children: [
+            for (final item in _rects)
+              Positioned.fromRect(
+                rect: item.rect.deflate(1.5),
+                child: Opacity(
+                  opacity: opacity,
+                  child: _SemanticsNodeWidget(label: item.label),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Border box with a small label badge in the top-right corner, used to
+/// render a single semantics node in the [_SemanticsOverlay].
+class _SemanticsNodeWidget extends StatelessWidget {
+  const _SemanticsNodeWidget({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: ghostOverlayColor, width: 1.5),
+          ),
+          child: const SizedBox.expand(),
+        ),
+        if (label.isNotEmpty)
+          Positioned(
+            top: -1,
+            right: -1,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: ghostOverlayColor,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(3),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+                child: Text(
+                  label,
+                  style: const TextStyle(
+                    color: Color(0xFFFFFFFF),
+                    fontSize: 8,
+                    fontWeight: FontWeight.w700,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Command-log chip
+
 class _EntryChip extends StatefulWidget {
   const _EntryChip({super.key, required this.entry, required this.onExited});
 
-  final _LogEntry entry;
+  final _LogMessage entry;
   final VoidCallback onExited;
 
   @override
@@ -330,14 +663,15 @@ class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
       ..forward();
     _exitController = AnimationController(vsync: this, duration: _animDuration);
 
+    // Values are fractions of the screen height (0.1 = 10% of screen height).
     _enterSlide = Tween<Offset>(
-      begin: const Offset(1.5, 0),
+      begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
 
     _exitSlide = Tween<Offset>(
       begin: Offset.zero,
-      end: const Offset(1.5, 0),
+      end: const Offset(0, 0.1),
     ).animate(CurvedAnimation(parent: _exitController, curve: Curves.easeIn));
   }
 
@@ -357,43 +691,57 @@ class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
     super.dispose();
   }
 
+  static IconData? _iconForKind(String? kind) => switch (kind) {
+        'reload' => Icons.refresh,
+        'screenshot' => Icons.photo_camera,
+        'read' => Icons.visibility,
+        'interact' => Icons.touch_app,
+        _ => null,
+      };
+
   @override
   Widget build(BuildContext context) {
     final label = widget.entry.details != null
         ? '${widget.entry.command}: ${widget.entry.details}'
         : widget.entry.command;
+    final icon = _iconForKind(widget.entry.kind);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: ClipRect(
-        child: AnimatedBuilder(
-          animation: Listenable.merge([_enterController, _exitController]),
-          builder: (context, child) => FractionalTranslation(
-            translation: _enterSlide.value + _exitSlide.value,
-            child: child,
+    return AnimatedBuilder(
+      animation: Listenable.merge([_enterController, _exitController]),
+      builder: (context, child) {
+        final screenH = MediaQuery.sizeOf(context).height;
+        final dy = (_enterSlide.value.dy + _exitSlide.value.dy) * screenH;
+        return Transform.translate(offset: Offset(0, dy), child: child);
+      },
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(const Color(0x28FFFFFF), ghostOverlayColor),
+              ghostOverlayColor,
+            ],
           ),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color.alphaBlend(const Color(0x28FFFFFF), ghostOverlayColor),
-                  ghostOverlayColor,
-                ],
-              ),
-              borderRadius: BorderRadius.circular(6),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x55000000),
-                  blurRadius: 6,
-                  offset: Offset(0, 2),
-                ),
-              ],
+          borderRadius: BorderRadius.circular(6),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x55000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              child: Text(
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 11, color: const Color(0xFFFFFFFF)),
+                const SizedBox(width: 4),
+              ],
+              Text(
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -404,7 +752,7 @@ class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
                   decoration: TextDecoration.none,
                 ),
               ),
-            ),
+            ],
           ),
         ),
       ),

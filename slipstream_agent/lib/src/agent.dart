@@ -379,7 +379,7 @@ class Agent {
     GhostOverlay.log('get semantics', kind: 'read', viz: 'semantics');
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
-    return {'ok': true, 'nodes': nodes};
+    return {'ok': true, 'nodes': nodes!.map((n) => n.toMap()).toList()};
   }
 
   final ServiceDescription _overlaysDescription = ServiceDescription(
