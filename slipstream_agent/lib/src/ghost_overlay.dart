@@ -94,6 +94,7 @@ class GhostOverlay {
       }
       element.visitChildren(visit);
     }
+
     WidgetsBinding.instance.rootElement?.visitChildren(visit);
     return result;
   }
@@ -110,8 +111,10 @@ class _GhostOverlayWidget extends StatefulWidget {
 }
 
 class _LogEntry {
-  _LogEntry({required this.command, this.details}) : id = _nextId++;
   static int _nextId = 0;
+
+  _LogEntry({required this.command, this.details}) : id = _nextId++;
+
   final int id;
   final String command;
   final String? details;

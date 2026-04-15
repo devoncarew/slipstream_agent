@@ -1,11 +1,14 @@
-## 1.0.0
+## 1.1.0-wip
 
 - Add `ext.slipstream.log` extension and ghost overlay command log. A
-  translucent chip stack appears in the bottom-right corner of the app
-  showing recent agent actions (e.g. "tap: login_button", "navigate:
-  /home"). In-process extensions log automatically; the MCP server calls
-  `ext.slipstream.log` for out-of-process operations (reload, screenshot,
-  evaluate, etc.). Each chip is shown for 3 seconds then removed.
+  translucent chip stack appears in the bottom-right corner of the app showing
+  recent agent actions (e.g. "tap: login_button", "navigate: /home"). In-process
+  extensions log automatically; the MCP server calls `ext.slipstream.log` for
+  out-of-process operations (reload, screenshot, evaluate, etc.). Each chip is
+  shown for 3 seconds then removed.
+
+## 1.0.0
+
 - Add `ext.slipstream.overlays` extension. Calling with `enabled=false` saves
   the current overlay state and hides all managed overlays (currently the
   Flutter debug banner via `WidgetsApp.debugAllowBannerOverride`); calling with
