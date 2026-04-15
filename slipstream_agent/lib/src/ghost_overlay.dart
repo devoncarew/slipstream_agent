@@ -26,14 +26,30 @@ class GhostOverlay {
   /// The queue of (command, details) pairs waiting to be handed to the widget.
   static final List<(String, String?)> _pending = [];
 
+  /// Controls whether the ghost overlay is visible.
+  ///
+  /// Set to `false` to suppress new entries and clear any currently visible
+  /// chips (e.g. before taking a screenshot). Set back to `true` to resume
+  /// normal display. Mirrors the role of [WidgetsApp.debugAllowBannerOverride]
+  /// for the debug banner.
+  static bool overlayEnabled = true;
+
   /// Shows [command] (and optional [details]) in the command log overlay.
   ///
+  /// If [overlayEnabled] is `false` the call is silently ignored.
   /// If the overlay is not yet in the tree it is installed first; any entries
   /// that arrive before the first build are queued and replayed once the
   /// widget state is available.
   static void log(String command, {String? details}) {
+    if (!overlayEnabled) return;
     _pending.add((command, details));
     _ensureInstalled();
+  }
+
+  /// Clears all currently visible chips immediately.
+  static void clearEntries() {
+    _pending.clear();
+    _key.currentState?.clearEntries();
   }
 
   // ---------------------------------------------------------------------------
@@ -118,6 +134,15 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       if (!mounted) return;
       setState(() => _entries.removeWhere((e) => e.id == entry.id));
     }));
+  }
+
+  void clearEntries() {
+    if (!mounted) return;
+    for (final t in _timers) {
+      t.cancel();
+    }
+    _timers.clear();
+    setState(() => _entries.clear());
   }
 
   @override

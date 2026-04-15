@@ -1,5 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import 'ghost_overlay.dart';
+
 /// Manages visibility of Flutter and Slipstream overlays.
 ///
 /// Call with `false` to hide all overlays and save their current state.
@@ -36,6 +38,8 @@ void _save() {
 
 void _hideAll() {
   WidgetsApp.debugAllowBannerOverride = false;
+  GhostOverlay.overlayEnabled = false;
+  GhostOverlay.clearEntries();
 }
 
 void _restore() {
@@ -43,6 +47,7 @@ void _restore() {
     WidgetsApp.debugAllowBannerOverride = _savedDebugBanner!;
     _savedDebugBanner = null;
   }
+  GhostOverlay.overlayEnabled = true;
 }
 
 // ---------------------------------------------------------------------------
