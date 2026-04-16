@@ -200,9 +200,14 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
 
   bool _visible = true;
 
-  final _flashKey = GlobalKey<_FlashOverlayState>();
-  final _outlineKey = GlobalKey<_OutlineOverlayState>();
-  final _semanticsKey = GlobalKey<_SemanticsOverlayState>();
+  // Trigger counters and data for the three visualization sub-widgets.
+  // Incrementing a counter causes the corresponding widget to start its
+  // animation via didUpdateWidget; no GlobalKeys needed.
+  int _flashCount = 0;
+  Rect? _outlineRect;
+  int _outlineCount = 0;
+  List<({Rect rect, String label})> _semanticsRects = const [];
+  int _semanticsCount = 0;
 
   void setVisible(bool visible) {
     if (!mounted) return;
@@ -212,15 +217,14 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         t.cancel();
       }
       _timers.clear();
-      _flashKey.currentState?.reset();
-      _outlineKey.currentState?.reset();
-      _semanticsKey.currentState?.reset();
     }
     setState(() {
       _visible = visible;
       if (!visible) {
         _entries.clear();
         _chipKeys.clear();
+        _outlineRect = null;
+        _semanticsRects = const [];
       }
     });
   }
@@ -242,7 +246,7 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       _chipKeys[existing.id]?.currentState?.triggerExit();
     }
 
-    if (entry.viz == 'flash') _flashKey.currentState?.trigger();
+    if (entry.viz == 'flash') setState(() => _flashCount++);
     if (entry.viz == 'outline' &&
         entry.finder != null &&
         entry.finderValue != null) {
@@ -261,7 +265,10 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
     final box = el?.renderObject;
     if (box is RenderBox && box.hasSize) {
       final rect = box.localToGlobal(Offset.zero) & box.size;
-      _outlineKey.currentState?.trigger(rect);
+      setState(() {
+        _outlineRect = rect;
+        _outlineCount++;
+      });
     }
   }
 
@@ -277,15 +284,10 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         ),
     ];
 
-    // Sort largest area first so that container nodes are painted behind
-    // smaller, more specific nodes in the Stack.
-    rects.sort((a, b) {
-      final aArea = a.rect.width * a.rect.height;
-      final bArea = b.rect.width * b.rect.height;
-      return bArea.compareTo(aArea);
+    setState(() {
+      _semanticsRects = rects;
+      _semanticsCount++;
     });
-
-    _semanticsKey.currentState?.trigger(rects);
   }
 
   static String _semanticsLabel(SemanticsNodeInfo node) {
@@ -310,11 +312,11 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       t.cancel();
     }
     _timers.clear();
-    _outlineKey.currentState?.reset();
-    _semanticsKey.currentState?.reset();
     setState(() {
       _entries.clear();
       _chipKeys.clear();
+      _outlineRect = null;
+      _semanticsRects = const [];
     });
   }
 
@@ -336,11 +338,12 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
       child: Stack(
         children: [
           // Brief white full-screen tint for viz:"flash" entries.
-          _FlashOverlay(key: _flashKey),
+          _FlashOverlay(triggerCount: _flashCount),
           // Bounding-box highlight for viz:"outline" entries.
-          _OutlineOverlay(key: _outlineKey),
+          _OutlineOverlay(rect: _outlineRect, triggerCount: _outlineCount),
           // Per-node bounding boxes for viz:"semantics" entries.
-          _SemanticsOverlay(key: _semanticsKey),
+          _SemanticsOverlay(
+              rects: _semanticsRects, triggerCount: _semanticsCount),
           // Slipstream banner — replaces the Flutter debug banner.
           Positioned.fill(
             child: CustomPaint(
@@ -382,9 +385,11 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
 // ---------------------------------------------------------------------------
 // Visualization widgets
 
-/// Brief full-screen white tint. Trigger with [trigger]; reset with [reset].
+/// Brief full-screen white tint, triggered when [triggerCount] increments.
 class _FlashOverlay extends StatefulWidget {
-  const _FlashOverlay({super.key});
+  const _FlashOverlay({required this.triggerCount});
+
+  final int triggerCount;
 
   @override
   State<_FlashOverlay> createState() => _FlashOverlayState();
@@ -412,8 +417,13 @@ class _FlashOverlayState extends State<_FlashOverlay>
     ]).animate(_controller);
   }
 
-  void trigger() => _controller.forward(from: 0.0);
-  void reset() => _controller.reset();
+  @override
+  void didUpdateWidget(_FlashOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.triggerCount != oldWidget.triggerCount) {
+      _controller.forward(from: 0.0);
+    }
+  }
 
   @override
   void dispose() {
@@ -438,9 +448,12 @@ class _FlashOverlayState extends State<_FlashOverlay>
 }
 
 /// Animated bounding-box highlight for a single widget.
-/// Call [trigger] with the screen-space rect; [reset] to hide immediately.
+/// Starts its animation when [triggerCount] increments; hides when [rect] is null.
 class _OutlineOverlay extends StatefulWidget {
-  const _OutlineOverlay({super.key});
+  const _OutlineOverlay({required this.rect, required this.triggerCount});
+
+  final Rect? rect;
+  final int triggerCount;
 
   @override
   State<_OutlineOverlay> createState() => _OutlineOverlayState();
@@ -450,7 +463,6 @@ class _OutlineOverlayState extends State<_OutlineOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
-  Rect? _rect;
 
   @override
   void initState() {
@@ -472,14 +484,14 @@ class _OutlineOverlayState extends State<_OutlineOverlay>
     ]).animate(_controller);
   }
 
-  void trigger(Rect rect) {
-    setState(() => _rect = rect);
-    _controller.forward(from: 0.0);
-  }
-
-  void reset() {
-    _controller.reset();
-    if (mounted) setState(() => _rect = null);
+  @override
+  void didUpdateWidget(_OutlineOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rect == null) {
+      _controller.reset();
+    } else if (widget.triggerCount != oldWidget.triggerCount) {
+      _controller.forward(from: 0.0);
+    }
   }
 
   @override
@@ -490,7 +502,7 @@ class _OutlineOverlayState extends State<_OutlineOverlay>
 
   @override
   Widget build(BuildContext context) {
-    final rect = _rect;
+    final rect = widget.rect;
     if (rect == null) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: _controller,
@@ -514,9 +526,12 @@ class _OutlineOverlayState extends State<_OutlineOverlay>
 }
 
 /// Animated bounding-box overlay for all visible semantics nodes.
-/// Call [trigger] with the sorted rect+label list; [reset] to hide immediately.
+/// Starts its animation when [triggerCount] increments; hides when [rects] is empty.
 class _SemanticsOverlay extends StatefulWidget {
-  const _SemanticsOverlay({super.key});
+  const _SemanticsOverlay({required this.rects, required this.triggerCount});
+
+  final List<({Rect rect, String label})> rects;
+  final int triggerCount;
 
   @override
   State<_SemanticsOverlay> createState() => _SemanticsOverlayState();
@@ -526,7 +541,6 @@ class _SemanticsOverlayState extends State<_SemanticsOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
-  List<({Rect rect, String label})> _rects = [];
 
   @override
   void initState() {
@@ -545,14 +559,14 @@ class _SemanticsOverlayState extends State<_SemanticsOverlay>
     ]).animate(_controller);
   }
 
-  void trigger(List<({Rect rect, String label})> rects) {
-    setState(() => _rects = rects);
-    _controller.forward(from: 0.0);
-  }
-
-  void reset() {
-    _controller.reset();
-    if (mounted) setState(() => _rects = []);
+  @override
+  void didUpdateWidget(_SemanticsOverlay oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.rects.isEmpty) {
+      _controller.reset();
+    } else if (widget.triggerCount != oldWidget.triggerCount) {
+      _controller.forward(from: 0.0);
+    }
   }
 
   @override
@@ -563,7 +577,7 @@ class _SemanticsOverlayState extends State<_SemanticsOverlay>
 
   @override
   Widget build(BuildContext context) {
-    if (_rects.isEmpty) return const SizedBox.shrink();
+    if (widget.rects.isEmpty) return const SizedBox.shrink();
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -571,7 +585,7 @@ class _SemanticsOverlayState extends State<_SemanticsOverlay>
         final opacity = _opacity.value;
         return Stack(
           children: [
-            for (final item in _rects)
+            for (final item in widget.rects)
               Positioned.fromRect(
                 rect: item.rect.deflate(1.5),
                 child: Opacity(

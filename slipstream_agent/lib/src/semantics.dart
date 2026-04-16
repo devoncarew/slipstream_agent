@@ -70,9 +70,11 @@ class SemanticsNodeInfo {
 /// Returns a flat list of visible semantics nodes with screen-space bounds,
 /// plus an error string if the tree is unavailable.
 ///
-/// Unlike the out-of-process implementation, [SemanticsNodeInfo.screenRect]
-/// values are accumulated screen-space coordinates in logical pixels (not each
-/// node's unreliable local coordinate space).
+/// [SemanticsNodeInfo.screenRect] values are in logical screen pixels.
+/// Positions are obtained via [RenderBox.localToGlobal], which stays in logical
+/// pixel space by not including the [RenderView]'s device-pixel-ratio scale.
+/// This matches the coordinate system used by [Positioned.fromRect] in the
+/// overlay.
 ///
 /// Callers should invoke `ext.slipstream.enable_semantics` and wait for a
 /// frame before calling this if the tree may not yet be enabled.
@@ -90,11 +92,19 @@ class SemanticsNodeInfo {
     return (null, 'semantics tree empty — retry after a frame renders');
   }
 
+  // Walk the render tree rather than the semantics tree so we can use
+  // RenderBox.localToGlobal for positions. Semantics transforms are in
+  // physical pixels (RenderView._rootTransform scales by devicePixelRatio),
+  // but localToGlobal excludes RenderView and stays in logical pixels.
   final entries = <_Entry>[];
-  _collect(root, Matrix4.identity(), entries);
+  final seenIds = <int>{};
+  for (final renderView in RendererBinding.instance.renderViews) {
+    _collectFromRenderTree(renderView, entries, seenIds);
+  }
 
   final nodes =
       entries.where(_hasContent).map(_toNodeInfo).toList(growable: false);
+
   return (nodes, null);
 }
 
@@ -111,36 +121,34 @@ class _Entry {
   _Entry(this.node, this.data, this.screenRect);
 }
 
-/// Recursively collects [SemanticsNode]s, skipping hidden and invisible ones.
+/// Recursively walks the render tree collecting [SemanticsNode]s.
 ///
-/// [localToScreen] is the cumulative transform from the current node's local
-/// coordinate space to screen space. Pass [Matrix4.identity] for the root.
-void _collect(
-  SemanticsNode node,
-  Matrix4 localToScreen,
+/// Uses [RenderBox.localToGlobal] for screen-space positions so that
+/// coordinates stay in logical pixels, matching the overlay's coordinate
+/// system. [seenIds] prevents duplicates when multiple render objects share
+/// the same semantics node (e.g. sibling-merged nodes).
+void _collectFromRenderTree(
+  RenderObject renderObject,
   List<_Entry> out,
+  Set<int> seenIds,
 ) {
-  if (node.isInvisible) return;
+  final semanticsNode = renderObject.debugSemantics;
 
-  final data = node.getSemanticsData();
-  if (data.flagsCollection.isHidden) return;
-
-  // node.transform maps FROM this node's local space TO the parent's space.
-  // Composing: childLocalToScreen = parentLocalToScreen * childTransform
-  final nodeTransform = node.transform;
-  final Matrix4 childLocalToScreen = nodeTransform != null
-      ? (localToScreen.clone()..multiply(nodeTransform))
-      : localToScreen;
-
-  out.add(_Entry(
-      node, data, MatrixUtils.transformRect(childLocalToScreen, node.rect)));
-
-  if (!node.mergeAllDescendantsIntoThisNode) {
-    node.visitChildren((child) {
-      _collect(child, childLocalToScreen, out);
-      return true;
-    });
+  if (semanticsNode != null &&
+      !semanticsNode.isMergedIntoParent &&
+      !semanticsNode.isInvisible &&
+      seenIds.add(semanticsNode.id)) {
+    final data = semanticsNode.getSemanticsData();
+    if (!data.flagsCollection.isHidden && renderObject is RenderBox) {
+      final offset = renderObject.localToGlobal(Offset.zero);
+      final screenRect = offset & renderObject.semanticBounds.size;
+      out.add(_Entry(semanticsNode, data, screenRect));
+    }
   }
+
+  renderObject.visitChildrenForSemantics((child) {
+    _collectFromRenderTree(child, out, seenIds);
+  });
 }
 
 // ---------------------------------------------------------------------------
