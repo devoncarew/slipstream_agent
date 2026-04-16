@@ -18,3 +18,8 @@ Visualizations:
 | `get_semantics`                | (read) "get semantics" semantics bounding boxes        |
 | `perform_semantic_action`      | (interact) "perform semantic: action id" bounding box? |
 | `close_app`                    | -                                                      |
+
+## Other
+
+- [ ] we have a use case for a general x,y tap - dismissing a dialog, ...; or
+      perhaps a 'dismiss dialog' semantic action, ...

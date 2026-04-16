@@ -34,6 +34,12 @@ class GhostOverlay {
   static final GlobalKey<_GhostOverlayState> _key = GlobalKey();
   static OverlayEntry? _entry;
 
+  /// The [OverlayState] that [_entry] was inserted into. Used to distinguish
+  /// "entry inserted but widget not yet built on this overlay" from "widget
+  /// torn down and a new overlay was created" — the latter requires
+  /// re-insertion even though [_entry] is non-null.
+  static OverlayState? _targetOverlay;
+
   /// The queue of entries waiting to be handed to the widget.
   static final List<_LogMessage> _pending = [];
 
@@ -113,9 +119,18 @@ class GhostOverlay {
       return;
     }
 
-    // Permanently disable the Flutter debug banner for this session.
+    if (_entry != null && overlay == _targetOverlay) {
+      // Entry was inserted into this overlay but the widget hasn't built yet
+      // (OverlayEntry.mounted is only true after the first build). Don't
+      // insert a second entry — that would produce a GlobalKey conflict.
+      return;
+    }
+
+    // New overlay (first install or widget tree was rebuilt after a hot
+    // restart / test teardown).
     WidgetsApp.debugAllowBannerOverride = false;
 
+    _targetOverlay = overlay;
     _entry = OverlayEntry(builder: (_) => _GhostOverlayWidget(key: _key));
     overlay.insert(_entry!);
 
@@ -133,6 +148,12 @@ class GhostOverlay {
   }
 
   static OverlayState? _findOverlay() {
+    final rootElement = WidgetsBinding.instance.rootElement;
+    if (rootElement == null) return null;
+
+    // Walk the element tree depth-first.  The first OverlayState encountered
+    // is the outermost one (closest to the root) — exactly where we want to
+    // insert so the overlay paints above all app content.
     OverlayState? result;
     void visit(Element element) {
       if (result != null) return;
@@ -143,7 +164,26 @@ class GhostOverlay {
       element.visitChildren(visit);
     }
 
-    WidgetsBinding.instance.rootElement?.visitChildren(visit);
+    rootElement.visitChildren(visit);
+
+    // Fallback: walk to the deepest leaf element and ask Flutter's own
+    // `Overlay.maybeOf()` to walk back up to the nearest Overlay ancestor. This
+    // handles unusual configurations where the DFS ordering could pick the
+    // wrong Overlay (e.g. a deeply-nested Navigator appearing earlier in the
+    // visit order).
+    if (result == null) {
+      Element? leaf;
+      void findLeaf(Element element) {
+        leaf = element;
+        element.visitChildren(findLeaf);
+      }
+
+      rootElement.visitChildren(findLeaf);
+      if (leaf != null) {
+        result = Overlay.maybeOf(leaf!);
+      }
+    }
+
     return result;
   }
 }
@@ -339,6 +379,13 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
 
     return IgnorePointer(
       child: Stack(
+        // StackFit.expand ensures the Stack fills the Overlay's area even when
+        // the Overlay passes loose rather than tight constraints.  Without it,
+        // the Stack would shrink-wrap its non-positioned children
+        // (_FlashOverlay / _OutlineOverlay / _SemanticsOverlay all return
+        // SizedBox.shrink() when idle), collapsing to 0×0 and hiding the
+        // Positioned.fill banner.
+        fit: StackFit.expand,
         children: [
           // Brief white full-screen tint for viz:"flash" entries.
           _FlashOverlay(triggerCount: _flashCount),
