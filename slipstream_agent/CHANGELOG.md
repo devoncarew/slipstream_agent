@@ -1,11 +1,18 @@
-## 1.1.1-wip
+## 1.1.1
 
+- Fix ghost overlay not appearing in apps that use `MaterialApp.router` (e.g.
+  GoRouter with `ShellRoute`). In current Flutter, `OverlayEntry.mounted` only
+  becomes `true` after the widget builds on the next frame, not immediately
+  after `overlay.insert()`. The fix tracks the target `OverlayState` and skips
+  re-insertion when the entry is pending its first build on the same overlay.
+- Addressed an intermittent error after a hot restart; "Multiple widgets used
+  the same GlobalKey".
 - Fix `bySemanticsLabel` finder missing widgets whose semantics label comes from
-  an implicit source (e.g. `ElevatedButton` merging its child text,
-  `TextField` mapping `InputDecoration.labelText`, `Semantics.attributedLabel`).
-  The finder now falls back to the render-level semantics node — the same data
-  source as `ext.slipstream.get_semantics` — so the label an agent sees in
-  `get_semantics` output can always be used to target that widget.
+  an implicit source (e.g. `ElevatedButton` merging its child text, `TextField`
+  mapping `InputDecoration.labelText`, `Semantics.attributedLabel`). The finder
+  now falls back to the render-level semantics node — the same data source as
+  `ext.slipstream.get_semantics` — so the label an agent sees in `get_semantics`
+  output can always be used to target that widget.
 
 ## 1.1.0
 
