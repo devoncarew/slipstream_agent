@@ -207,8 +207,7 @@ void main() {
       expect(findElement(finder: 'byKey', value: 'nonexistent'), isNull);
       expect(findElement(finder: 'byType', value: 'NonExistentWidget'), isNull);
       expect(findElement(finder: 'byText', value: 'no such text'), isNull);
-      expect(
-          findElement(finder: 'bySemanticsLabel', value: 'no such label'),
+      expect(findElement(finder: 'bySemanticsLabel', value: 'no such label'),
           isNull);
     });
 
