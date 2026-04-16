@@ -46,7 +46,18 @@ bool _matches(Element element, String finder, String value) {
       return false;
 
     case 'bySemanticsLabel':
-      if (widget is Semantics) return widget.properties.label == value;
+      // Fast path: explicit Semantics widget with a plain-string label.
+      if (widget is Semantics && widget.properties.label == value) return true;
+      // Fallback: check the render-level semantics node. This covers widgets
+      // that set semantics implicitly — ElevatedButton merges its child Text,
+      // TextField maps InputDecoration.labelText, Semantics.attributedLabel,
+      // etc. It is the same data source as ext.slipstream.get_semantics, so
+      // the labels seen there and the values passed here are consistent.
+      // Requires semantics to be enabled (ext.slipstream.enable_semantics).
+      final node = element.renderObject?.debugSemantics;
+      if (node != null && !node.isMergedIntoParent) {
+        return node.getSemanticsData().label == value;
+      }
       return false;
 
     default:

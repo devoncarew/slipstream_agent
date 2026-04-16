@@ -1,3 +1,12 @@
+## 1.1.1-wip
+
+- Fix `bySemanticsLabel` finder missing widgets whose semantics label comes from
+  an implicit source (e.g. `ElevatedButton` merging its child text,
+  `TextField` mapping `InputDecoration.labelText`, `Semantics.attributedLabel`).
+  The finder now falls back to the render-level semantics node — the same data
+  source as `ext.slipstream.get_semantics` — so the label an agent sees in
+  `get_semantics` output can always be used to target that widget.
+
 ## 1.1.0
 
 - Add `ext.slipstream.log` extension and ghost overlay command log. A
