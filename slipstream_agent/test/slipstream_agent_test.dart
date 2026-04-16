@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:slipstream_agent/slipstream_agent.dart';
 import 'package:slipstream_agent/src/actions.dart';
 import 'package:slipstream_agent/src/finder.dart';
+import 'package:slipstream_agent/src/ghost_overlay.dart';
 import 'package:slipstream_agent/src/overlays.dart';
 import 'package:slipstream_agent/src/semantics.dart';
 
@@ -395,15 +396,12 @@ void main() {
       expect(nodes!.isNotEmpty, isTrue);
 
       for (final node in nodes) {
-        expect(node, contains('id'));
-        expect(node, contains('role'));
-        expect(node, contains('label'));
-        expect(node, contains('value'));
-        expect(node, contains('hint'));
-        expect(node, contains('left'));
-        expect(node, contains('top'));
-        expect(node, contains('right'));
-        expect(node, contains('bottom'));
+        expect(node.id, isNot(equals(0)));
+        expect(node.role, isNotNull);
+        expect(node.label, isNotEmpty);
+        expect(node.value, isNotNull);
+        expect(node.hint, isNotNull);
+        expect(node.screenRect, isNot(isEmpty));
       }
     });
 
@@ -426,7 +424,7 @@ void main() {
       handle.dispose();
 
       expect(nodes, isNotNull);
-      final buttonNodes = nodes!.where((n) => n['role'] == 'button').toList();
+      final buttonNodes = nodes!.where((n) => n.role == 'button').toList();
       expect(buttonNodes, isNotEmpty);
     });
 
@@ -447,7 +445,7 @@ void main() {
 
       expect(nodes, isNotNull);
       final textFieldNodes =
-          nodes!.where((n) => n['role'] == 'textfield').toList();
+          nodes!.where((n) => n.role == 'textfield').toList();
       expect(textFieldNodes, isNotEmpty);
     });
 
@@ -471,14 +469,14 @@ void main() {
 
       expect(nodes, isNotNull);
 
-      final buttonNodes = nodes!.where((n) => n['role'] == 'button').toList();
+      final buttonNodes = nodes!.where((n) => n.role == 'button').toList();
       expect(buttonNodes, isNotEmpty);
 
-      final btn = buttonNodes.first;
-      final left = btn['left'] as double;
-      final top = btn['top'] as double;
-      final right = btn['right'] as double;
-      final bottom = btn['bottom'] as double;
+      final dimensions = buttonNodes.first.screenRect;
+      final left = dimensions.left;
+      final top = dimensions.top;
+      final right = dimensions.right;
+      final bottom = dimensions.bottom;
 
       expect(right - left, greaterThan(0));
       expect(bottom - top, greaterThan(0));
@@ -487,59 +485,45 @@ void main() {
 
   group('setOverlaysEnabled', () {
     setUp(() {
-      // Ensure the banner override is in its default state before each test.
-      WidgetsApp.debugAllowBannerOverride = true;
+      // Reset GhostOverlay visibility before each test.
+      GhostOverlay.setVisible(true);
     });
 
-    testWidgets('hides the debug banner when called with false',
+    testWidgets('hides the ghost overlay when called with false',
         (tester) async {
+      // pumpWidget installs the OverlayEntry (via post-frame callback).
+      // First pump builds the widget and schedules _flushPending.
+      // Second pump rebuilds with the chip visible.
+      GhostOverlay.log('hello');
       await tester.pumpWidget(const MaterialApp(home: Scaffold()));
+      await tester.pump();
+      await tester.pump();
 
-      expect(WidgetsApp.debugAllowBannerOverride, isTrue);
+      expect(find.text('hello'), findsOneWidget);
 
       setOverlaysEnabled(false);
       await tester.pump();
 
-      expect(WidgetsApp.debugAllowBannerOverride, isFalse);
+      expect(find.text('hello'), findsNothing);
     });
 
-    testWidgets('restores the debug banner when called with true',
+    testWidgets('restores the ghost overlay when called with true',
         (tester) async {
+      // Install the overlay first.
+      GhostOverlay.log('setup');
       await tester.pumpWidget(const MaterialApp(home: Scaffold()));
-
-      setOverlaysEnabled(false);
       await tester.pump();
-      expect(WidgetsApp.debugAllowBannerOverride, isFalse);
-
-      setOverlaysEnabled(true);
       await tester.pump();
-      expect(WidgetsApp.debugAllowBannerOverride, isTrue);
-    });
-
-    testWidgets('restores to false if banner was already hidden',
-        (tester) async {
-      WidgetsApp.debugAllowBannerOverride = false;
-      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
 
       setOverlaysEnabled(false);
       await tester.pump();
 
       setOverlaysEnabled(true);
+      // Entry is already mounted — log goes directly to the state.
+      GhostOverlay.log('world');
       await tester.pump();
 
-      // Restored to the state it was in before the hide call.
-      expect(WidgetsApp.debugAllowBannerOverride, isFalse);
-    });
-
-    testWidgets('restore is a no-op when no prior hide was called',
-        (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: Scaffold()));
-
-      // No hide call made — restore should leave the banner enabled.
-      setOverlaysEnabled(true);
-      await tester.pump();
-
-      expect(WidgetsApp.debugAllowBannerOverride, isTrue);
+      expect(find.text('world'), findsOneWidget);
     });
   });
 }

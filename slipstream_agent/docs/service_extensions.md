@@ -219,7 +219,7 @@ are true screen-space coordinates.
 
 ---
 
-## `ext.slipstream.overlays`
+## `ext.slipstream.overlays` (since v1.0.0)
 
 Shows or hides all Slipstream-managed overlays. Designed for use cases like
 screenshots where overlays should be temporarily hidden.
@@ -259,6 +259,66 @@ or
 2. take screenshot
 3. call ext.slipstream.overlays(enabled: true)
 ```
+
+---
+
+## `ext.slipstream.log` (since v1.1.0)
+
+Logs an agent command to the ghost overlay command log. The Slipstream MCP
+server calls this for operations that do not flow through an in-process
+extension (e.g. hot reload, screenshot, evaluate). In-process extensions
+(`perform_action`, `navigate`, etc.) log automatically.
+
+**Parameters:**
+
+| Name          | Type   | Required | Description                                                                                     |
+| ------------- | ------ | -------- | ----------------------------------------------------------------------------------------------- |
+| `command`     | String | yes      | Short label: `"reload"`, `"screenshot"`, `"evaluate"`, etc.                                     |
+| `details`     | String | no       | Optional detail appended after a colon: a path, text value, etc.                                |
+| `kind`        | String | no       | Icon category: `"read"`, `"interact"`, `"reload"`, or `"screenshot"`                            |
+| `finder`      | String | no       | Finder type for the widget of interest: `"byKey"`, `"byType"`, `"byText"`, `"bySemanticsLabel"` |
+| `finderValue` | String | no       | Value to match against the chosen finder                                                        |
+| `viz`         | String | no       | Extra visualization: `"flash"`, `"outline"`, `"layout"`, or `"semantics"`                       |
+
+**`kind` values:**
+
+| Value          | Icon hint    | Typical commands                                           |
+| -------------- | ------------ | ---------------------------------------------------------- |
+| `"reload"`     | refresh      | `reload`                                                   |
+| `"screenshot"` | camera       | `take_screenshot`                                          |
+| `"read"`       | eye/data     | `evaluate`, `get_route`, `get_semantics`, `inspect_layout` |
+| `"interact"`   | cursor/touch | `navigate`, `tap`, `set_text`, `scroll`                    |
+
+**`viz` values:**
+
+| Value         | Effect                                                      | Typical pairing             |
+| ------------- | ----------------------------------------------------------- | --------------------------- |
+| `"flash"`     | Brief full-screen tint                                      | `take_screenshot`           |
+| `"outline"`   | Bounding-box highlight on the `finder`/`finderValue` widget | `tap`, `set_text`, `scroll` |
+| `"layout"`    | Bounding box with layout annotations (padding, flex arrows) | `inspect_layout`            |
+| `"semantics"` | Flash outlines on all visible semantics nodes               | `get_semantics`             |
+
+`viz: "outline"` and `viz: "layout"` require `finder` + `finderValue`; silently
+ignored if omitted.
+
+**Display format:** `command` when no details; `command: details` otherwise.
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+**Examples of MCP server usage:**
+
+| MCP tool          | Suggested call                                                                                           |
+| ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `reload`          | `log(command: "reload", details: "300ms", kind: "reload")`                                               |
+| `take_screenshot` | `log(command: "screenshot", kind: "screenshot", viz: "flash")`                                           |
+| `evaluate`        | `log(command: "evaluate", details: "widget.toString()", kind: "read")`                                   |
+| `inspect_layout`  | `log(command: "inspect layout", kind: "read", finder: "byKey", finderValue: "my_widget", viz: "layout")` |
+| `navigate`        | logged automatically by `ext.slipstream.navigate`                                                        |
+| `perform_tap`     | logged automatically by `ext.slipstream.perform_action`                                                  |
 
 ---
 

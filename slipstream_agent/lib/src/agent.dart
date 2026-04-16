@@ -6,6 +6,7 @@ import 'package:service_extensions/service_extensions.dart';
 
 import 'actions.dart';
 import 'finder.dart';
+import 'ghost_overlay.dart';
 import 'overlays.dart';
 import 'router_adapter.dart';
 import 'semantics.dart';
@@ -66,6 +67,11 @@ class Agent {
     registerServiceExtension(
       _overlaysDescription,
       _overlaysExtension,
+    );
+
+    registerServiceExtension(
+      _logDescription,
+      _logExtension,
     );
 
     initTelemetry();
@@ -158,11 +164,23 @@ class Agent {
     String? error;
     switch (action) {
       case 'tap':
+        GhostOverlay.log('tap',
+            details: finderValue,
+            kind: 'interact',
+            finder: finder,
+            finderValue: finderValue,
+            viz: 'outline');
         error = await tapElement(element);
       case 'set_text':
         if (text == null) {
           error = 'interact: "text" is required for the set_text action';
         } else {
+          GhostOverlay.log('set text',
+              details: '"$text"',
+              kind: 'interact',
+              finder: finder,
+              finderValue: finderValue,
+              viz: 'outline');
           error = setTextInElement(element, text);
         }
       case 'scroll':
@@ -171,6 +189,12 @@ class Agent {
         } else if (pixels == null) {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
+          GhostOverlay.log('scroll',
+              details: '$direction ${pixels}px',
+              kind: 'interact',
+              finder: finder,
+              finderValue: finderValue,
+              viz: 'outline');
           error = await scrollElement(
             element,
             direction: direction,
@@ -192,6 +216,12 @@ class Agent {
                 'interact: no scrollable found for scrollFinder="$scrollFinder"'
                 ' value="$scrollFinderValue"';
           } else {
+            GhostOverlay.log('scroll to',
+                details: finderValue,
+                kind: 'interact',
+                finder: finder,
+                finderValue: finderValue,
+                viz: 'outline');
             error = await scrollUntilVisible(
               targetElement: element,
               scrollableElement: scrollable,
@@ -222,6 +252,7 @@ class Agent {
 
   Future<Map<String, Object?>> _getRouteExtension(
       ExtensionParameters parameters) async {
+    GhostOverlay.log('get route', kind: 'read');
     final path = _router?.currentPath();
     if (path == null) {
       return {
@@ -276,6 +307,7 @@ class Agent {
     }
 
     try {
+      GhostOverlay.log('navigate', details: path, kind: 'interact');
       _router!.go(root, path);
       return {'ok': true};
     } catch (e) {
@@ -296,6 +328,7 @@ class Agent {
 
   Future<Map<String, Object?>> _pingExtension(
       ExtensionParameters parameters) async {
+    GhostOverlay.install();
     return {
       'version': packageVersion,
     };
@@ -309,6 +342,7 @@ class Agent {
 
   Future<Map<String, Object?>> _enableSemanticsExtension(
       ExtensionParameters parameters) async {
+    GhostOverlay.log('enable semantics', kind: 'read');
     RendererBinding.instance.ensureSemantics();
     await _waitForNextFrame();
     return {};
@@ -342,9 +376,10 @@ class Agent {
 
   Future<Map<String, Object?>> _getSemanticsExtension(
       ExtensionParameters parameters) async {
+    GhostOverlay.log('get semantics', kind: 'read', viz: 'semantics');
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
-    return {'ok': true, 'nodes': nodes};
+    return {'ok': true, 'nodes': nodes!.map((n) => n.toMap()).toList()};
   }
 
   final ServiceDescription _overlaysDescription = ServiceDescription(
@@ -377,10 +412,82 @@ class Agent {
       ExtensionParameters parameters) async {
     final enabled = parameters.asBoolRequired('enabled');
 
+    // This command shouldn't have an overlay message.
+    // GhostOverlay.log('overlays', details: enabled ? 'show' : 'hide');
     setOverlaysEnabled(enabled);
 
     await _waitForNextFrame();
 
+    return {'ok': true};
+  }
+
+  final ServiceDescription _logDescription = ServiceDescription(
+    name: 'ext.slipstream.log',
+    description:
+        'Logs an agent command to the ghost overlay command log. Called by the '
+        'Slipstream MCP server for operations that do not flow through an '
+        'in-process extension (e.g. hot reload, screenshot, evaluate). '
+        'In-process extensions log automatically.',
+    parameters: [
+      ParameterDescription(
+        name: 'command',
+        type: 'String',
+        description:
+            'Short label for the command, e.g. "reload", "screenshot".',
+        required: true,
+      ),
+      ParameterDescription(
+        name: 'details',
+        type: 'String',
+        description: 'Optional detail appended after a colon, '
+            'e.g. a route path or text value.',
+      ),
+      ParameterDescription(
+        name: 'kind',
+        type: 'String',
+        description: 'Icon category hint: "read", "interact", "reload", or '
+            '"screenshot".',
+      ),
+      ParameterDescription(
+        name: 'finder',
+        type: 'String',
+        description: 'Finder type for the widget of interest '
+            '("byKey", "byType", "byText", "bySemanticsLabel"). '
+            'Used with viz="outline" or viz="layout".',
+      ),
+      ParameterDescription(
+        name: 'finderValue',
+        type: 'String',
+        description: 'Value to match against the chosen finder.',
+      ),
+      ParameterDescription(
+        name: 'viz',
+        type: 'String',
+        description: 'Extra visualization: "flash" (full-screen tint), '
+            '"outline" (widget bounding box), '
+            '"layout" (bounding box with layout annotations), or '
+            '"semantics" (all semantics node outlines).',
+      ),
+    ],
+    returns: [
+      ReturnDescription(name: 'ok', type: 'bool', description: 'Always true.'),
+    ],
+  );
+
+  Future<Map<String, Object?>> _logExtension(
+      ExtensionParameters parameters) async {
+    final String command = parameters.asStringRequired('command');
+    final String? details = parameters.asString('details');
+    final String? kind = parameters.asString('kind');
+    final String? finder = parameters.asString('finder');
+    final String? finderValue = parameters.asString('finderValue');
+    final String? viz = parameters.asString('viz');
+    GhostOverlay.log(command,
+        details: details,
+        kind: kind,
+        finder: finder,
+        finderValue: finderValue,
+        viz: viz);
     return {'ok': true};
   }
 
