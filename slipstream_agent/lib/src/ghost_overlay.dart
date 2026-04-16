@@ -29,7 +29,7 @@ class GhostOverlay {
 
   static const Duration _chipDuration = Duration(seconds: 3);
   static const Duration _semanticsDuration = Duration(seconds: 3);
-  static const Duration _outlineDuration = Duration(milliseconds: 900);
+  static const Duration _outlineDuration = Duration(milliseconds: 750);
 
   static final GlobalKey<_GhostOverlayState> _key = GlobalKey();
   static OverlayEntry? _entry;
@@ -247,9 +247,12 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
     }
 
     if (entry.viz == 'flash') setState(() => _flashCount++);
-    if (entry.viz == 'outline' &&
+    if ((entry.viz == 'outline' || entry.viz == 'layout') &&
         entry.finder != null &&
         entry.finderValue != null) {
+      // TODO: 'layout' could get a specialized visualization (padding overlays,
+      // flex annotations, etc.) once ext.slipstream.inspect_layout is
+      // implemented with in-process finder support.
       _triggerOutline(entry.finder!, entry.finderValue!);
     }
     if (entry.viz == 'semantics') _triggerSemantics();

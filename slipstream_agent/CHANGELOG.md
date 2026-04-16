@@ -1,16 +1,31 @@
-## 1.1.0-wip
+## 1.1.0
 
 - Add `ext.slipstream.log` extension and ghost overlay command log. A
-  translucent chip stack appears in the bottom-right corner of the app showing
-  recent agent actions (e.g. "tap: login_button", "navigate: /home"). In-process
-  extensions log automatically; the MCP server calls `ext.slipstream.log` for
-  out-of-process operations (reload, screenshot, evaluate, etc.). Each chip is
-  shown for 3 seconds then removed.
+  translucent chip appears at the bottom of the app showing the most recent
+  agent action (e.g. "tap: login_button", "navigate: /home"), then slides out
+  after 3 seconds. In-process extensions log automatically; the MCP server calls
+  `ext.slipstream.log` for out-of-process operations (reload, screenshot,
+  evaluate, etc.).
 - Ghost overlay now installs on the first `ext.slipstream.ping` (or any log
   call), permanently replacing the Flutter debug banner with a "slipstream"
-  banner in the top-right corner. `ext.slipstream.overlays` now only toggles
-  the ghost overlay visibility (banner + chips) and no longer saves/restores
+  banner in the top-right corner. `ext.slipstream.overlays` now only toggles the
+  ghost overlay visibility (banner + chips) and no longer saves/restores
   `WidgetsApp.debugAllowBannerOverride`.
+- `ext.slipstream.log` accepts `kind`, `finder`, `finderValue`, and `viz`
+  parameters for richer visualizations. `kind` controls the icon shown in the
+  chip (`"read"`, `"interact"`, `"reload"`, `"screenshot"`). `viz` triggers an
+  extra visual effect: `"flash"` (brief full-screen tint), `"outline"` (animated
+  bounding-box highlight on the target widget), `"semantics"` (bounding-box
+  outlines on all visible semantics nodes), or `"layout"` (falls back to
+  `"outline"` for now).
+- Fix `ext.slipstream.get_semantics` returning incorrect screen-space
+  coordinates. The previous implementation accumulated `SemanticsNode.transform`
+  values, which are in physical pixels (scaled by `devicePixelRatio`). The new
+  implementation walks the render tree using `RenderBox.localToGlobal`, which
+  stays in logical pixels and matches the overlay coordinate system.
+  `visitChildrenForSemantics` is used instead of `visitChildren` so that render
+  objects excluded from semantics (e.g. inactive `IndexedStack` tabs) are not
+  collected.
 
 ## 1.0.0
 
