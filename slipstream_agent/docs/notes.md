@@ -1,13 +1,5 @@
 ## Ghost Overlay
 
-- Widget highlight on tap
-- Widget highlight on set_text
-- Semantics bounding box flash on get_semantics
-- Widget highlight on inspect layout
-- Overlay display on reload
-- Overlay display on run app?
-- Overlay display on evaluate
-
 Visualizations:
 
 | Command                        | Description (icon) "log message" visualization         |
