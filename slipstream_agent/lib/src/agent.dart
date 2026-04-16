@@ -50,8 +50,8 @@ class Agent {
     );
 
     registerServiceExtension(
-      _interactDescription,
-      _interactExtension,
+      _performActionDescription,
+      _performActionExtension,
     );
 
     registerServiceExtension(
@@ -77,7 +77,7 @@ class Agent {
     initTelemetry();
   }
 
-  final ServiceDescription _interactDescription = ServiceDescription(
+  final ServiceDescription _performActionDescription = ServiceDescription(
     name: 'ext.slipstream.perform_action',
     description:
         'Performs a UI action (tap, set_text) on a widget located by a '
@@ -140,7 +140,7 @@ class Agent {
     ],
   );
 
-  Future<Map<String, Object?>> _interactExtension(
+  Future<Map<String, Object?>> _performActionExtension(
     ExtensionParameters parameters,
   ) async {
     final String action = parameters.asStringRequired('action');
