@@ -93,8 +93,8 @@ class Agent {
       ParameterDescription(
         name: 'finder',
         type: 'String',
-        description: 'How to find the widget: "byKey", "byType", "byText", or '
-            '"bySemanticsLabel".',
+        description: 'How to find the widget: "byKey", "byType", "byText", '
+            '"byTextContaining", or "bySemanticsLabel".',
         required: true,
       ),
       ParameterDescription(

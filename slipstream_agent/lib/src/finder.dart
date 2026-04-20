@@ -8,6 +8,8 @@ import 'package:flutter/widgets.dart';
 ///   representation)
 /// - `byType` — matches the widget's `runtimeType.toString()` exactly
 /// - `byText` — matches a [Text] widget whose `data` equals [value]
+/// - `byTextContaining` — matches a [Text] widget whose `data` contains [value]
+///   as a substring
 /// - `bySemanticsLabel` — matches a [Semantics] widget whose label equals
 ///   [value]
 ///
@@ -43,6 +45,10 @@ bool _matches(Element element, String finder, String value) {
 
     case 'byText':
       if (widget is Text) return widget.data == value;
+      return false;
+
+    case 'byTextContaining':
+      if (widget is Text) return widget.data?.contains(value) ?? false;
       return false;
 
     case 'bySemanticsLabel':

@@ -43,7 +43,7 @@ installed.
 | Name          | Type   | Required     | Description                                                |
 | ------------- | ------ | ------------ | ---------------------------------------------------------- |
 | `action`      | String | yes          | `"tap"` or `"set_text"`                                    |
-| `finder`      | String | yes          | `"byKey"`, `"byType"`, `"byText"`, or `"bySemanticsLabel"` |
+| `finder`      | String | yes          | `"byKey"`, `"byType"`, `"byText"`, `"byTextContaining"`, or `"bySemanticsLabel"` |
 | `finderValue` | String | yes          | Value to match against the chosen finder                   |
 | `text`        | String | for set_text | Text to set; replaces the field's current content          |
 
@@ -54,6 +54,7 @@ installed.
 | `byKey`            | Widget has a `ValueKey<String>` equal to `finderValue`, or a `ValueKey<int>` whose `.toString()` equals `finderValue` |
 | `byType`           | `widget.runtimeType.toString() == finderValue` (e.g. `"ElevatedButton"`)                                              |
 | `byText`           | Widget is a `Text` and `Text.data == finderValue`                                                                     |
+| `byTextContaining` | Widget is a `Text` and `Text.data` contains `finderValue` as a substring (useful when displayed text is truncated)    |
 | `bySemanticsLabel` | Widget is a `Semantics` and `properties.label == finderValue`                                                         |
 
 The tree is walked depth-first from the root; the first match is used.

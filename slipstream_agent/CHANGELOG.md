@@ -3,6 +3,9 @@
 - `ext.slipstream.perform_action` and `ext.slipstream.navigate` now wait for
   the widget tree to settle before returning, giving animations and navigation
   transitions time to complete before the next tool call.
+- Add `byTextContaining` finder: matches a `Text` widget whose content contains
+  the given value as a substring. Useful when displayed text is truncated (e.g.
+  `"Lorem ipsum..."` vs the full string).
 - Remove the `ext.slipstream.windowResized` telemetry event. VM service events
   are not pushed into agent context, so agents would need to poll for them —
   making the event low value in practice.
