@@ -270,14 +270,30 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   bool _visible = true;
 
   // Persistent error display — mirrors GhostOverlay._errorCount/Summary.
+  final GlobalKey<_ErrorBannerState> _errorBannerKey = GlobalKey();
+  bool _showErrorBanner = false;
   int _errorCount = 0;
   String _errorSummary = '';
 
   void setError(int count, String summary) {
     if (!mounted) return;
+    if (count > 0) {
+      setState(() {
+        _errorCount = count;
+        _errorSummary = summary;
+        _showErrorBanner = true;
+      });
+    } else {
+      _errorBannerKey.currentState?.triggerExit();
+    }
+  }
+
+  void _onErrorBannerExited() {
+    if (!mounted) return;
     setState(() {
-      _errorCount = count;
-      _errorSummary = summary;
+      _showErrorBanner = false;
+      _errorCount = 0;
+      _errorSummary = '';
     });
   }
 
@@ -306,11 +322,13 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         _chipKeys.clear();
         _outlineRect = null;
         _semanticsRects = const [];
+        _showErrorBanner = false;
         _errorCount = 0;
         _errorSummary = '';
       } else {
         _errorCount = GhostOverlay._errorCount;
         _errorSummary = GhostOverlay._errorSummary;
+        _showErrorBanner = _errorCount > 0;
       }
     });
   }
@@ -460,16 +478,16 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
             ),
           ),
           // Persistent error banner near the top of the screen.
-          if (_errorCount > 0)
+          if (_showErrorBanner)
             Positioned(
-              top: (MediaQuery.maybePaddingOf(context)?.top ?? 0.0) + 18,
+              top: (MediaQuery.maybePaddingOf(context)?.top ?? 0.0) + 16,
               left: 12,
               right: 12,
-              child: Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  _ErrorBanner(count: _errorCount, summary: _errorSummary),
-                ],
+              child: _ErrorBanner(
+                key: _errorBannerKey,
+                count: _errorCount,
+                summary: _errorSummary,
+                onExited: _onErrorBannerExited,
               ),
             ),
           // Command-log chips — share the same space; newer chips are
@@ -788,54 +806,117 @@ final BoxDecoration _errorDecoration = BoxDecoration(
   ],
 );
 
-class _ErrorBanner extends StatelessWidget {
-  const _ErrorBanner({required this.count, required this.summary});
+class _ErrorBanner extends StatefulWidget {
+  const _ErrorBanner({
+    super.key,
+    required this.count,
+    required this.summary,
+    required this.onExited,
+  });
 
   final int count;
   final String? summary;
+  final VoidCallback onExited;
+
+  @override
+  State<_ErrorBanner> createState() => _ErrorBannerState();
+}
+
+class _ErrorBannerState extends State<_ErrorBanner>
+    with TickerProviderStateMixin {
+  static const Duration _animDuration = Duration(milliseconds: 280);
+
+  late final AnimationController _enterController;
+  late final AnimationController _exitController;
+  late final Animation<Offset> _enterSlide;
+  late final Animation<Offset> _exitSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _enterController = AnimationController(vsync: this, duration: _animDuration)
+      ..forward();
+    _exitController = AnimationController(vsync: this, duration: _animDuration);
+
+    _enterSlide = Tween<Offset>(
+      begin: const Offset(0, -0.1),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
+
+    _exitSlide = Tween<Offset>(
+      begin: Offset.zero,
+      end: const Offset(0, -0.1),
+    ).animate(CurvedAnimation(parent: _exitController, curve: Curves.easeIn));
+  }
+
+  void triggerExit() {
+    if (!mounted) return;
+    if (_exitController.isAnimating || _exitController.isCompleted) return;
+    _exitController.forward().then((_) {
+      if (mounted) widget.onExited();
+    });
+  }
+
+  @override
+  void dispose() {
+    _enterController.dispose();
+    _exitController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final errorDesc =
-        summary == null ? 'flutter.error' : 'flutter.error: $summary';
+    final errorDesc = widget.summary == null
+        ? 'flutter.error'
+        : 'flutter.error: ${widget.summary}';
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // error count
-        DecoratedBox(
-          decoration: _errorDecoration,
-          child: Padding(
-            padding:
-                const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
-            child: Text('$count', style: _errorTextStyle),
+    return AnimatedBuilder(
+      animation: Listenable.merge([_enterController, _exitController]),
+      builder: (context, child) {
+        final screenH = MediaQuery.sizeOf(context).height;
+        final dy = (_enterSlide.value.dy + _exitSlide.value.dy) * screenH;
+        return Transform.translate(offset: Offset(0, dy), child: child);
+      },
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // error count badge — circular for single digits, pill for larger
+          Container(
+            decoration: BoxDecoration(
+              color: _errorColor,
+              borderRadius: BorderRadius.circular(50),
+              boxShadow: _errorDecoration.boxShadow,
+            ),
+            constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            alignment: Alignment.center,
+            child: Text('${widget.count}', style: _errorTextStyle),
           ),
-        ),
-
-        SizedBox(width: 4),
-
-        // error icon and message
-        DecoratedBox(
-          decoration: _errorDecoration,
-          child: Padding(
-            padding:
-                const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
-            child: Row(
-              children: [
-                Icon(Icons.error_outline,
-                    size: 11, color: const Color(0xFFFFFFFF)),
-                const SizedBox(width: 4),
-                Text(
-                  errorDesc,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _errorTextStyle,
-                ),
-              ],
+          const SizedBox(width: 4),
+          // error icon and message — centered in remaining space
+          DecoratedBox(
+            decoration: _errorDecoration,
+            child: Padding(
+              padding:
+                  const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 11, color: Color(0xFFFFFFFF)),
+                  const SizedBox(width: 4),
+                  Text(
+                    errorDesc,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: _errorTextStyle,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
