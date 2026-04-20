@@ -40,22 +40,22 @@ installed.
 
 **Parameters:**
 
-| Name          | Type   | Required     | Description                                                |
-| ------------- | ------ | ------------ | ---------------------------------------------------------- |
-| `action`      | String | yes          | `"tap"` or `"set_text"`                                    |
+| Name          | Type   | Required     | Description                                                                      |
+| ------------- | ------ | ------------ | -------------------------------------------------------------------------------- |
+| `action`      | String | yes          | `"tap"` or `"set_text"`                                                          |
 | `finder`      | String | yes          | `"byKey"`, `"byType"`, `"byText"`, `"byTextContaining"`, or `"bySemanticsLabel"` |
-| `finderValue` | String | yes          | Value to match against the chosen finder                   |
-| `text`        | String | for set_text | Text to set; replaces the field's current content          |
+| `finderValue` | String | yes          | Value to match against the chosen finder                                         |
+| `text`        | String | for set_text | Text to set; replaces the field's current content                                |
 
 **Finder semantics:**
 
-| Finder             | Matches when                                                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `byKey`            | Widget has a `ValueKey<String>` equal to `finderValue`, or a `ValueKey<int>` whose `.toString()` equals `finderValue` |
-| `byType`           | `widget.runtimeType.toString() == finderValue` (e.g. `"ElevatedButton"`)                                              |
-| `byText`           | Widget is a `Text` and `Text.data == finderValue`                                                                     |
-| `byTextContaining` | Widget is a `Text` and `Text.data` contains `finderValue` as a substring (useful when displayed text is truncated)    |
-| `bySemanticsLabel` | Widget is a `Semantics` and `properties.label == finderValue`                                                         |
+| Finder             | Matches when                                                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `byKey`            | Widget has a `ValueKey<String>` equal to `finderValue`, or a `ValueKey<int>` whose `.toString()` equals `finderValue`             |
+| `byType`           | `widget.runtimeType.toString() == finderValue` (e.g. `"ElevatedButton"`)                                                          |
+| `byText`           | Widget is a `Text` and `Text.data == finderValue`                                                                                 |
+| `byTextContaining` | Widget is a `Text` and `Text.data` contains `finderValue` as a substring (useful when displayed text is truncated) (since v1.2.0) |
+| `bySemanticsLabel` | Widget is a `Semantics` and `properties.label == finderValue`                                                                     |
 
 The tree is walked depth-first from the root; the first match is used.
 
@@ -323,7 +323,7 @@ ignored if omitted.
 
 ---
 
-## `ext.slipstream.clear_errors`
+## `ext.slipstream.clear_errors` (since v1.2.0)
 
 Clears the persistent `flutter.error` banner from the ghost overlay. Call after
 reading error output (e.g. after `get_output`) or after a hot reload to
