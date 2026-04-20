@@ -3,6 +3,13 @@
 - `ext.slipstream.perform_action` and `ext.slipstream.navigate` now wait for
   the widget tree to settle before returning, giving animations and navigation
   transitions time to complete before the next tool call.
+- Add a persistent error banner: `FlutterError.onError` is intercepted and
+  surfaces errors as a red chip near the top of the screen showing a running
+  count and a brief summary, e.g. `(3) flutter.error: Null check operator…`.
+  The banner is visible in agent screenshots and clears automatically on hot
+  reload or via the new `ext.slipstream.clear_errors` extension.
+- Add `ext.slipstream.clear_errors` extension: dismisses the error banner (call
+  after `get_output` or whenever the agent has acknowledged the errors).
 - Add `byTextContaining` finder: matches a `Text` widget whose content contains
   the given value as a substring. Useful when displayed text is truncated (e.g.
   `"Lorem ipsum..."` vs the full string).

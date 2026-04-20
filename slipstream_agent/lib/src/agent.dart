@@ -75,6 +75,11 @@ class Agent {
       _logExtension,
     );
 
+    registerServiceExtension(
+      _clearErrorsDescription,
+      _clearErrorsExtension,
+    );
+
     initTelemetry();
   }
 
@@ -336,6 +341,7 @@ class Agent {
   Future<Map<String, Object?>> _pingExtension(
       ExtensionParameters parameters) async {
     GhostOverlay.install();
+    GhostOverlay.showError('test error'); // TODO: remove
     return {
       'version': packageVersion,
     };
@@ -480,6 +486,23 @@ class Agent {
       ReturnDescription(name: 'ok', type: 'bool', description: 'Always true.'),
     ],
   );
+
+  final ServiceDescription _clearErrorsDescription = ServiceDescription(
+    name: 'ext.slipstream.clear_errors',
+    description:
+        'Clears the persistent flutter.error banner from the ghost overlay. '
+        'Call after reading error output (e.g. after get_output) or after a '
+        'hot reload to acknowledge the errors.',
+    returns: [
+      ReturnDescription(name: 'ok', type: 'bool', description: 'Always true.'),
+    ],
+  );
+
+  Future<Map<String, Object?>> _clearErrorsExtension(
+      ExtensionParameters _) async {
+    GhostOverlay.clearErrors();
+    return {'ok': true};
+  }
 
   Future<Map<String, Object?>> _logExtension(
       ExtensionParameters parameters) async {

@@ -20,6 +20,3 @@ Visualizations:
 | `close_app`                    | -                                                      |
 
 ## Other
-
-- [ ] we have a use case for a general x,y tap - dismissing a dialog, ...; or
-      perhaps a 'dismiss dialog' semantic action, ...

@@ -30,6 +30,7 @@ class GhostOverlay {
   static const Duration _chipDuration = Duration(seconds: 3);
   static const Duration _semanticsDuration = Duration(seconds: 3);
   static const Duration _outlineDuration = Duration(milliseconds: 750);
+  static const Duration _toastDuration = Duration(milliseconds: 280);
 
   static final GlobalKey<_GhostOverlayState> _key = GlobalKey();
   static OverlayEntry? _entry;
@@ -44,6 +45,29 @@ class GhostOverlay {
   static final List<_LogMessage> _pending = [];
 
   static bool _visible = true;
+
+  // Persistent error state — source of truth; the widget state mirrors this.
+  static int _errorCount = 0;
+  static String _errorSummary = '';
+
+  /// Records a new `flutter.error` event and shows the persistent error banner.
+  ///
+  /// The banner displays a running count and the most recent [summary]. Call
+  /// [clearErrors] to dismiss it (e.g. after the agent has read the logs or
+  /// after a hot reload).
+  static void showError(String summary) {
+    _errorCount++;
+    _errorSummary = summary;
+    _key.currentState?.setError(_errorCount, _errorSummary);
+    _ensureInstalled();
+  }
+
+  /// Clears the persistent error banner.
+  static void clearErrors() {
+    _errorCount = 0;
+    _errorSummary = '';
+    _key.currentState?.setError(0, '');
+  }
 
   /// Installs the ghost overlay and permanently disables the Flutter debug
   /// banner for the life of the Slipstream session.
@@ -140,11 +164,16 @@ class GhostOverlay {
 
   static void _flushPending() {
     final state = _key.currentState;
-    if (state == null || _pending.isEmpty) return;
-    for (final entry in _pending) {
-      state.addLogMessage(entry);
+    if (state == null) return;
+    if (_pending.isNotEmpty) {
+      for (final entry in _pending) {
+        state.addLogMessage(entry);
+      }
+      _pending.clear();
     }
-    _pending.clear();
+    if (_errorCount > 0) {
+      state.setError(_errorCount, _errorSummary);
+    }
   }
 
   static OverlayState? _findOverlay() {
@@ -240,6 +269,18 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
 
   bool _visible = true;
 
+  // Persistent error display — mirrors GhostOverlay._errorCount/Summary.
+  int _errorCount = 0;
+  String _errorSummary = '';
+
+  void setError(int count, String summary) {
+    if (!mounted) return;
+    setState(() {
+      _errorCount = count;
+      _errorSummary = summary;
+    });
+  }
+
   // Trigger counters and data for the three visualization sub-widgets.
   // Incrementing a counter causes the corresponding widget to start its
   // animation via didUpdateWidget; no GlobalKeys needed.
@@ -265,6 +306,11 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         _chipKeys.clear();
         _outlineRect = null;
         _semanticsRects = const [];
+        _errorCount = 0;
+        _errorSummary = '';
+      } else {
+        _errorCount = GhostOverlay._errorCount;
+        _errorSummary = GhostOverlay._errorSummary;
       }
     });
   }
@@ -364,6 +410,13 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    // Hot reload — clear accumulated errors so the banner resets cleanly.
+    GhostOverlay.clearErrors();
+  }
+
+  @override
   void dispose() {
     for (final t in _timers) {
       t.cancel();
@@ -406,6 +459,19 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
               ),
             ),
           ),
+          // Persistent error banner near the top of the screen.
+          if (_errorCount > 0)
+            Positioned(
+              top: (MediaQuery.maybePaddingOf(context)?.top ?? 0.0) + 18,
+              left: 12,
+              right: 12,
+              child: Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  _ErrorBanner(count: _errorCount, summary: _errorSummary),
+                ],
+              ),
+            ),
           // Command-log chips — share the same space; newer chips are
           // painted in front of older ones.
           if (_entries.isNotEmpty)
@@ -699,6 +765,82 @@ class _SemanticsNodeWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Persistent error banner
+
+const Color _errorColor = Color(0xFFB71C1C);
+
+const TextStyle _errorTextStyle = TextStyle(
+  color: Color(0xFFFFFFFF),
+  fontSize: 12 * 0.85,
+  fontWeight: FontWeight.w900,
+  decoration: TextDecoration.none,
+);
+
+final BoxDecoration _errorDecoration = BoxDecoration(
+  color: _errorColor,
+  borderRadius: BorderRadius.circular(6),
+  boxShadow: const [
+    BoxShadow(
+      color: Color(0x55000000),
+      blurRadius: 6,
+      offset: Offset(0, 2),
+    ),
+  ],
+);
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.count, required this.summary});
+
+  final int count;
+  final String? summary;
+
+  @override
+  Widget build(BuildContext context) {
+    final errorDesc =
+        summary == null ? 'flutter.error' : 'flutter.error: $summary';
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        // error count
+        DecoratedBox(
+          decoration: _errorDecoration,
+          child: Padding(
+            padding:
+                const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
+            child: Text('$count', style: _errorTextStyle),
+          ),
+        ),
+
+        SizedBox(width: 4),
+
+        // error icon and message
+        DecoratedBox(
+          decoration: _errorDecoration,
+          child: Padding(
+            padding:
+                const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
+            child: Row(
+              children: [
+                Icon(Icons.error_outline,
+                    size: 11, color: const Color(0xFFFFFFFF)),
+                const SizedBox(width: 4),
+                Text(
+                  errorDesc,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _errorTextStyle,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Command-log chip
 
 class _EntryChip extends StatefulWidget {
@@ -712,8 +854,6 @@ class _EntryChip extends StatefulWidget {
 }
 
 class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
-  static const Duration _animDuration = Duration(milliseconds: 280);
-
   late final AnimationController _enterController;
   late final AnimationController _exitController;
   late final Animation<Offset> _enterSlide;
@@ -723,9 +863,11 @@ class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
   void initState() {
     super.initState();
 
-    _enterController = AnimationController(vsync: this, duration: _animDuration)
-      ..forward();
-    _exitController = AnimationController(vsync: this, duration: _animDuration);
+    _enterController =
+        AnimationController(vsync: this, duration: GhostOverlay._toastDuration)
+          ..forward();
+    _exitController =
+        AnimationController(vsync: this, duration: GhostOverlay._toastDuration);
 
     // Values are fractions of the screen height (0.1 = 10% of screen height).
     _enterSlide = Tween<Offset>(

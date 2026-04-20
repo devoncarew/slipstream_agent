@@ -323,6 +323,24 @@ ignored if omitted.
 
 ---
 
+## `ext.slipstream.clear_errors`
+
+Clears the persistent `flutter.error` banner from the ghost overlay. Call after
+reading error output (e.g. after `get_output`) or after a hot reload to
+acknowledge accumulated errors.
+
+The banner is also cleared automatically on hot reload (via `State.reassemble`).
+
+**Parameters:** none
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+---
+
 ## Events
 
 Events are posted to the VM service `Extension` stream via
