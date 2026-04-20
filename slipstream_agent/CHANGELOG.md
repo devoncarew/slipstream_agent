@@ -5,7 +5,7 @@
   transitions time to complete before the next tool call.
 - Add a persistent error banner: `FlutterError.onError` is intercepted and
   surfaces errors as a red chip near the top of the screen showing a running
-  count and a brief summary, e.g. `(3) flutter.error: Null check operator…`. The
+  count and a brief summary, e.g. `flutter.error: Null check operator…`. The
   banner is visible in agent screenshots and clears automatically on hot reload
   or via the new `ext.slipstream.clear_errors` extension.
 - Add `ext.slipstream.clear_errors` extension: dismisses the error banner (call
