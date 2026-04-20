@@ -47,7 +47,7 @@ class GhostOverlay {
 
   // Persistent error state — source of truth; the widget state mirrors this.
   static int _errorCount = 0;
-  static String _errorSummary = '';
+  static String? _errorSummary;
 
   /// Records a new `flutter.error` event and shows the persistent error banner.
   ///
@@ -57,15 +57,15 @@ class GhostOverlay {
   static void showError(String summary) {
     _errorCount++;
     _errorSummary = summary;
-    _key.currentState?.setError(_errorCount, _errorSummary);
+    _key.currentState?.syncErrorBanner();
     _ensureInstalled();
   }
 
   /// Clears the persistent error banner.
   static void clearErrors() {
     _errorCount = 0;
-    _errorSummary = '';
-    _key.currentState?.setError(0, '');
+    _errorSummary = null;
+    _key.currentState?.syncErrorBanner();
   }
 
   /// Installs the ghost overlay and permanently disables the Flutter debug
@@ -171,7 +171,7 @@ class GhostOverlay {
       _pending.clear();
     }
     if (_errorCount > 0) {
-      state.setError(_errorCount, _errorSummary);
+      state.syncErrorBanner();
     }
   }
 
@@ -366,19 +366,21 @@ mixin _SlidingChipMixin<T extends StatefulWidget>
 /// Shared container for command-log and error chips: a [DecoratedBox] with
 /// standard horizontal/vertical padding.
 class _ChipBox extends StatelessWidget {
-  const _ChipBox({required this.decoration, required this.child});
+  const _ChipBox({
+    required this.decoration,
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+  });
 
   final BoxDecoration decoration;
   final Widget child;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: decoration,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-        child: child,
-      ),
+      child: Padding(padding: padding, child: child),
     );
   }
 }
@@ -397,15 +399,23 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   final GlobalKey<_ErrorBannerState> _errorBannerKey = GlobalKey();
   bool _showErrorBanner = false;
   int _errorCount = 0;
-  String _errorSummary = '';
+  String? _errorSummary;
 
-  void setError(int count, String summary) {
+  void syncErrorBanner() {
     if (!mounted) return;
-    if (count > 0) {
-      setState(() {
-        _errorCount = count;
-        _errorSummary = summary;
-        _showErrorBanner = true;
+
+    if (GhostOverlay._errorCount > 0) {
+      // Defer setState — FlutterError.onError fires during layout/paint
+      // (e.g. overflow errors), and setState is illegal during a frame.
+      // Reading from GhostOverlay statics in the callback captures the latest
+      // value even if multiple errors arrive in the same frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _errorCount = GhostOverlay._errorCount;
+          _errorSummary = GhostOverlay._errorSummary;
+          _showErrorBanner = true;
+        });
       });
     } else {
       _errorBannerKey.currentState?.triggerExit();
@@ -970,27 +980,36 @@ class _ErrorBannerState extends State<_ErrorBanner>
               boxShadow: _chipBoxShadow,
             ),
             constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+            padding:
+                const EdgeInsets.only(left: 5, right: 5, top: 1, bottom: 3),
             alignment: Alignment.center,
             child: Text('${widget.count}', style: _chipTextStyle),
           ),
+
           const SizedBox(width: 4),
-          // error icon and message — centered in remaining space
-          _ChipBox(
-            decoration: _errorChipDecoration,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.error_outline,
-                    size: 11, color: Color(0xFFFFFFFF)),
-                const SizedBox(width: 4),
-                Text(
-                  errorDesc,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: _chipTextStyle,
-                ),
-              ],
+
+          // error icon and message — Flexible so text truncates if needed
+          Flexible(
+            child: _ChipBox(
+              decoration: _errorChipDecoration,
+              padding:
+                  const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 11, color: Color(0xFFFFFFFF)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      errorDesc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _chipTextStyle,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],

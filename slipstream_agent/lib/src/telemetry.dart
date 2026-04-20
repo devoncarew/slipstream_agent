@@ -19,9 +19,10 @@ void initTelemetry() {
 String _extractErrorSummary(FlutterErrorDetails details) {
   final msg = details.exceptionAsString();
   final first = msg.split('\n').firstWhere(
-    (l) => l.trim().isNotEmpty,
-    orElse: () => msg,
-  );
+        (l) => l.trim().isNotEmpty,
+        orElse: () => msg,
+      );
   final trimmed = first.trim();
-  return trimmed.length > 40 ? '${trimmed.substring(0, 38)}…' : trimmed;
+  final words = trimmed.split(' ');
+  return words.length <= 3 ? words.join(' ') : '${words.take(3).join(' ')}…';
 }

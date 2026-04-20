@@ -85,7 +85,6 @@ class _PingExtension extends AgentExtension {
   @override
   Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
     GhostOverlay.install();
-    GhostOverlay.showError('test error'); // TODO: remove
     return {'version': packageVersion};
   }
 }
@@ -154,7 +153,8 @@ class _NavigateExtension extends AgentExtension {
   );
 
   @override
-  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+  Future<Map<String, Object?>> handleCall(
+      ExtensionParameters parameters) async {
     final String path = parameters.asStringRequired('path');
 
     if (_router == null) {
@@ -248,7 +248,8 @@ class _PerformActionExtension extends AgentExtension {
   );
 
   @override
-  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+  Future<Map<String, Object?>> handleCall(
+      ExtensionParameters parameters) async {
     final String action = parameters.asStringRequired('action');
     final String finder = parameters.asStringRequired('finder');
     final String finderValue = parameters.asStringRequired('finderValue');
@@ -431,7 +432,8 @@ class _OverlaysExtension extends AgentExtension {
   );
 
   @override
-  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+  Future<Map<String, Object?>> handleCall(
+      ExtensionParameters parameters) async {
     final enabled = parameters.asBoolRequired('enabled');
     setOverlaysEnabled(enabled);
     await _waitForNextFrame();
@@ -495,7 +497,8 @@ class _LogExtension extends AgentExtension {
   );
 
   @override
-  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+  Future<Map<String, Object?>> handleCall(
+      ExtensionParameters parameters) async {
     GhostOverlay.log(
       parameters.asStringRequired('command'),
       details: parameters.asString('details'),
