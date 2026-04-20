@@ -22,7 +22,6 @@ class Agent {
   static Agent get instance => _instance;
 
   bool _initialized = false;
-  RouterAdapter? _router;
 
   Agent._();
 
@@ -33,57 +32,159 @@ class Agent {
     if (_initialized) return;
     _initialized = true;
 
-    _router = router;
-
-    registerServiceExtension(
-      _pingDescription,
-      _pingExtension,
-    );
-
-    registerServiceExtension(
-      _getRouteDescription,
-      _getRouteExtension,
-    );
-
-    registerServiceExtension(
-      _navigateDescription,
-      _navigateExtension,
-    );
-
-    registerServiceExtension(
-      _performActionDescription,
-      _performActionExtension,
-    );
-
-    registerServiceExtension(
-      _enableSemanticsDescription,
-      _enableSemanticsExtension,
-    );
-
-    registerServiceExtension(
-      _getSemanticsDescription,
-      _getSemanticsExtension,
-    );
-
-    registerServiceExtension(
-      _overlaysDescription,
-      _overlaysExtension,
-    );
-
-    registerServiceExtension(
-      _logDescription,
-      _logExtension,
-    );
-
-    registerServiceExtension(
-      _clearErrorsDescription,
-      _clearErrorsExtension,
-    );
+    for (final ext in [
+      _PingExtension(),
+      _GetRouteExtension(router),
+      _NavigateExtension(router),
+      _PerformActionExtension(),
+      _EnableSemanticsExtension(),
+      _GetSemanticsExtension(),
+      _OverlaysExtension(),
+      _LogExtension(),
+      _ClearErrorsExtension(),
+    ]) {
+      registerServiceExtension(ext.description, ext.handleCall);
+    }
 
     initTelemetry();
   }
+}
 
-  final ServiceDescription _performActionDescription = ServiceDescription(
+Future<void> _waitForNextFrame() async {
+  final completer = Completer<void>();
+  WidgetsBinding.instance.scheduleFrameCallback(
+    (timeStamp) => completer.complete(),
+    scheduleNewFrame: true,
+  );
+  await completer.future;
+}
+
+abstract class AgentExtension {
+  ServiceDescription get description;
+
+  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters);
+}
+
+// ---------------------------------------------------------------------------
+// Extensions
+
+class _PingExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
+    name: 'ext.slipstream.ping',
+    description: 'Checks the status of the Slipstream agent.',
+    returns: [
+      ReturnDescription(
+        name: 'version',
+        type: 'String',
+        description: 'The slipstream_agent version.',
+      ),
+    ],
+  );
+
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
+    GhostOverlay.install();
+    GhostOverlay.showError('test error'); // TODO: remove
+    return {'version': packageVersion};
+  }
+}
+
+class _GetRouteExtension extends AgentExtension {
+  _GetRouteExtension(this._router);
+
+  final RouterAdapter? _router;
+
+  @override
+  final ServiceDescription description = ServiceDescription(
+    name: 'ext.slipstream.get_route',
+    description:
+        'Returns the current route path from the registered router adapter. '
+        'Requires SlipstreamAgent.init(router: ...) to have been called.',
+    returns: [
+      ReturnDescription(
+        name: 'path',
+        type: 'String',
+        description: 'The current route path, e.g. "/podcast/123".',
+      ),
+    ],
+  );
+
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
+    GhostOverlay.log('get route', kind: 'read');
+    final path = _router?.currentPath();
+    if (path == null) {
+      return {
+        'ok': false,
+        'error': 'get_route: no router adapter registered or path unavailable',
+      };
+    }
+    return {'ok': true, 'path': path};
+  }
+}
+
+class _NavigateExtension extends AgentExtension {
+  _NavigateExtension(this._router);
+
+  final RouterAdapter? _router;
+
+  @override
+  final ServiceDescription description = ServiceDescription(
+    name: 'ext.slipstream.navigate',
+    description: 'Navigates the app to a route path via the registered router '
+        'adapter. Requires SlipstreamAgent.init(router: ...) to have been '
+        'called.',
+    parameters: [
+      ParameterDescription(
+        name: 'path',
+        type: 'String',
+        description: 'Route path to navigate to, e.g. "/podcast/123".',
+        required: true,
+      ),
+    ],
+    returns: [
+      ReturnDescription(
+          name: 'ok', type: 'bool', description: 'The status of the call.'),
+      ReturnDescription(
+          name: 'error',
+          type: 'String',
+          description: 'A message describing any error.'),
+    ],
+  );
+
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+    final String path = parameters.asStringRequired('path');
+
+    if (_router == null) {
+      return {
+        'ok': false,
+        'error': 'navigate: no router adapter registered. Call '
+            'SlipstreamAgent.init(router: GoRouterAdapter(appRouter)) in '
+            'main().',
+      };
+    }
+
+    final Element? root = WidgetsBinding.instance.rootElement;
+    if (root == null) {
+      return {'ok': false, 'error': 'navigate: widget tree not yet built'};
+    }
+
+    try {
+      GhostOverlay.log('navigate', details: path, kind: 'interact');
+      _router.go(root, path);
+      await pumpAndMostlySettle();
+      return {'ok': true};
+    } catch (e) {
+      return {'ok': false, 'error': 'navigate: $e'};
+    }
+  }
+}
+
+class _PerformActionExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.perform_action',
     description:
         'Performs a UI action (tap, set_text) on a widget located by a '
@@ -142,13 +243,12 @@ class Agent {
       ReturnDescription(
           name: 'error',
           type: 'String',
-          description: 'A message describing any error.')
+          description: 'A message describing any error.'),
     ],
   );
 
-  Future<Map<String, Object?>> _performActionExtension(
-    ExtensionParameters parameters,
-  ) async {
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
     final String action = parameters.asStringRequired('action');
     final String finder = parameters.asStringRequired('finder');
     final String finderValue = parameters.asStringRequired('finderValue');
@@ -246,122 +346,28 @@ class Agent {
 
     return {'ok': true};
   }
+}
 
-  final ServiceDescription _getRouteDescription = ServiceDescription(
-    name: 'ext.slipstream.get_route',
-    description:
-        'Returns the current route path from the registered router adapter. '
-        'Requires SlipstreamAgent.init(router: ...) to have been called.',
-    returns: [
-      ReturnDescription(
-        name: 'path',
-        type: 'String',
-        description: 'The current route path, e.g. "/podcast/123".',
-      ),
-    ],
-  );
-
-  Future<Map<String, Object?>> _getRouteExtension(
-      ExtensionParameters parameters) async {
-    GhostOverlay.log('get route', kind: 'read');
-    final path = _router?.currentPath();
-    if (path == null) {
-      return {
-        'ok': false,
-        'error': 'get_route: no router adapter registered or path unavailable',
-      };
-    }
-    return {'ok': true, 'path': path};
-  }
-
-  final ServiceDescription _navigateDescription = ServiceDescription(
-    name: 'ext.slipstream.navigate',
-    description: 'Navigates the app to a route path via the registered router '
-        'adapter. Requires SlipstreamAgent.init(router: ...) to have been '
-        'called.',
-    parameters: [
-      ParameterDescription(
-        name: 'path',
-        type: 'String',
-        description: 'Route path to navigate to, e.g. "/podcast/123".',
-        required: true,
-      ),
-    ],
-    returns: [
-      ReturnDescription(
-          name: 'ok', type: 'bool', description: 'The status of the call.'),
-      ReturnDescription(
-          name: 'error',
-          type: 'String',
-          description: 'A message describing any error.')
-    ],
-  );
-
-  Future<Map<String, Object?>> _navigateExtension(
-    ExtensionParameters parameters,
-  ) async {
-    final String path = parameters.asStringRequired('path');
-
-    if (_router == null) {
-      return {
-        'ok': false,
-        'error': 'navigate: no router adapter registered. Call '
-            'SlipstreamAgent.init(router: GoRouterAdapter(appRouter)) in '
-            'main().',
-      };
-    }
-
-    // Obtain a BuildContext from the root element.
-    final Element? root = WidgetsBinding.instance.rootElement;
-    if (root == null) {
-      return {'ok': false, 'error': 'navigate: widget tree not yet built'};
-    }
-
-    try {
-      GhostOverlay.log('navigate', details: path, kind: 'interact');
-      _router!.go(root, path);
-      await pumpAndMostlySettle();
-      return {'ok': true};
-    } catch (e) {
-      return {'ok': false, 'error': 'navigate: $e'};
-    }
-  }
-
-  final ServiceDescription _pingDescription = ServiceDescription(
-    name: 'ext.slipstream.ping',
-    description: 'Checks the status of the Slipstream agent.',
-    returns: [
-      ReturnDescription(
-          name: 'version',
-          type: 'String',
-          description: 'The slipstream_agent version.')
-    ],
-  );
-
-  Future<Map<String, Object?>> _pingExtension(
-      ExtensionParameters parameters) async {
-    GhostOverlay.install();
-    GhostOverlay.showError('test error'); // TODO: remove
-    return {
-      'version': packageVersion,
-    };
-  }
-
-  final ServiceDescription _enableSemanticsDescription = ServiceDescription(
+class _EnableSemanticsExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.enable_semantics',
     description: 'Enables the Flutter semantics tree and schedules a frame to '
         'ensure it is populated.',
   );
 
-  Future<Map<String, Object?>> _enableSemanticsExtension(
-      ExtensionParameters parameters) async {
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
     GhostOverlay.log('enable semantics', kind: 'read');
     RendererBinding.instance.ensureSemantics();
     await _waitForNextFrame();
     return {};
   }
+}
 
-  final ServiceDescription _getSemanticsDescription = ServiceDescription(
+class _GetSemanticsExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.get_semantics',
     description:
         'Returns a flat list of visible semantics nodes from the running app. '
@@ -387,15 +393,18 @@ class Agent {
     ],
   );
 
-  Future<Map<String, Object?>> _getSemanticsExtension(
-      ExtensionParameters parameters) async {
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
     GhostOverlay.log('get semantics', kind: 'read', viz: 'semantics');
     final (nodes, error) = getSemanticsNodes();
     if (error != null) return {'ok': false, 'error': error};
     return {'ok': true, 'nodes': nodes!.map((n) => n.toMap()).toList()};
   }
+}
 
-  final ServiceDescription _overlaysDescription = ServiceDescription(
+class _OverlaysExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.overlays',
     description:
         'Shows or hides all Slipstream-managed overlays (debug banner, and '
@@ -421,20 +430,18 @@ class Agent {
     ],
   );
 
-  Future<Map<String, Object?>> _overlaysExtension(
-      ExtensionParameters parameters) async {
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
     final enabled = parameters.asBoolRequired('enabled');
-
-    // This command shouldn't have an overlay message.
-    // GhostOverlay.log('overlays', details: enabled ? 'show' : 'hide');
     setOverlaysEnabled(enabled);
-
     await _waitForNextFrame();
-
     return {'ok': true};
   }
+}
 
-  final ServiceDescription _logDescription = ServiceDescription(
+class _LogExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.log',
     description:
         'Logs an agent command to the ghost overlay command log. Called by the '
@@ -487,7 +494,23 @@ class Agent {
     ],
   );
 
-  final ServiceDescription _clearErrorsDescription = ServiceDescription(
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters parameters) async {
+    GhostOverlay.log(
+      parameters.asStringRequired('command'),
+      details: parameters.asString('details'),
+      kind: parameters.asString('kind'),
+      finder: parameters.asString('finder'),
+      finderValue: parameters.asString('finderValue'),
+      viz: parameters.asString('viz'),
+    );
+    return {'ok': true};
+  }
+}
+
+class _ClearErrorsExtension extends AgentExtension {
+  @override
+  final ServiceDescription description = ServiceDescription(
     name: 'ext.slipstream.clear_errors',
     description:
         'Clears the persistent flutter.error banner from the ghost overlay. '
@@ -498,35 +521,9 @@ class Agent {
     ],
   );
 
-  Future<Map<String, Object?>> _clearErrorsExtension(
-      ExtensionParameters _) async {
+  @override
+  Future<Map<String, Object?>> handleCall(ExtensionParameters _) async {
     GhostOverlay.clearErrors();
     return {'ok': true};
-  }
-
-  Future<Map<String, Object?>> _logExtension(
-      ExtensionParameters parameters) async {
-    final String command = parameters.asStringRequired('command');
-    final String? details = parameters.asString('details');
-    final String? kind = parameters.asString('kind');
-    final String? finder = parameters.asString('finder');
-    final String? finderValue = parameters.asString('finderValue');
-    final String? viz = parameters.asString('viz');
-    GhostOverlay.log(command,
-        details: details,
-        kind: kind,
-        finder: finder,
-        finderValue: finderValue,
-        viz: viz);
-    return {'ok': true};
-  }
-
-  // A addPostFrameCallback() callback may be more correct here.
-  Future<void> _waitForNextFrame() async {
-    final completer = Completer();
-    WidgetsBinding.instance.scheduleFrameCallback(
-        (timeStamp) => completer.complete(),
-        scheduleNewFrame: true);
-    await completer.future;
   }
 }
