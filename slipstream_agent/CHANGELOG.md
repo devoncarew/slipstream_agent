@@ -1,3 +1,12 @@
+## 1.2.0-wip
+
+- `ext.slipstream.perform_action` and `ext.slipstream.navigate` now wait for
+  the widget tree to settle before returning, giving animations and navigation
+  transitions time to complete before the next tool call.
+- Remove the `ext.slipstream.windowResized` telemetry event. VM service events
+  are not pushed into agent context, so agents would need to poll for them —
+  making the event low value in practice.
+
 ## 1.1.1
 
 - Fix ghost overlay not appearing in apps that use `MaterialApp.router` (e.g.

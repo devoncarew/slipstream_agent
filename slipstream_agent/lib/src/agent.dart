@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:service_extensions/service_extensions.dart';
 
 import 'actions.dart';
+import 'common.dart';
 import 'finder.dart';
 import 'ghost_overlay.dart';
 import 'overlays.dart';
@@ -232,7 +233,12 @@ class Agent {
         error = 'interact: unknown action "$action"';
     }
 
-    if (error != null) return {'ok': false, 'error': error};
+    if (error != null) {
+      return {'ok': false, 'error': error};
+    }
+
+    await pumpAndMostlySettle();
+
     return {'ok': true};
   }
 
@@ -309,6 +315,7 @@ class Agent {
     try {
       GhostOverlay.log('navigate', details: path, kind: 'interact');
       _router!.go(root, path);
+      await pumpAndMostlySettle();
       return {'ok': true};
     } catch (e) {
       return {'ok': false, 'error': 'navigate: $e'};

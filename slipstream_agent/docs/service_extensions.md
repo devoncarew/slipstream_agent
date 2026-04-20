@@ -328,33 +328,6 @@ Events are posted to the VM service `Extension` stream via
 `dart:developer.postEvent`. Clients subscribe with `streamListen('Extension')`
 and filter by `event.extensionKind`.
 
-### `ext.slipstream.windowResized`
-
-Fired whenever the window metrics change (resize, rotation, device pixel ratio
-change). Backed by `WidgetsBindingObserver.didChangeMetrics`.
-
-**Payload:**
-
-```json
-{
-  "viewId": 0,
-  "physicalWidth": 1170.0,
-  "physicalHeight": 2532.0,
-  "devicePixelRatio": 3.0,
-  "logicalWidth": 390.0,
-  "logicalHeight": 844.0
-}
-```
-
-<!-- prettier-ignore-start -->
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `viewId` | int | Identifies the view that changed (relevant for multi-window apps) |
-| `physicalWidth` / `physicalHeight` | double | Dimensions in physical pixels |
-| `devicePixelRatio` | double | Physical pixels per logical pixel |
-| `logicalWidth` / `logicalHeight` | double | Dimensions in logical pixels (`physical / devicePixelRatio`) |
-<!-- prettier-ignore-end -->
-
 ### `ext.slipstream.routeChanged`
 
 Fired whenever the registered router adapter's route changes. Requires

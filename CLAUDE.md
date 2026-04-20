@@ -56,7 +56,6 @@ with `streamListen('Extension')` and filter by `event.extensionKind`.
 
 | Event                          | Trigger                        | Source                                                    |
 | ------------------------------ | ------------------------------ | --------------------------------------------------------- |
-| `ext.slipstream.windowResized` | Window/display metrics change  | `WidgetsBindingObserver.didChangeMetrics`                 |
 | `ext.slipstream.routeChanged`  | Router navigates to a new path | `GoRouterAdapter` listener on the `GoRouter` `Listenable` |
 
 Telemetry is initialized automatically by `Agent.initialize()` via
