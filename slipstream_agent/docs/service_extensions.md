@@ -40,21 +40,22 @@ installed.
 
 **Parameters:**
 
-| Name          | Type   | Required     | Description                                                |
-| ------------- | ------ | ------------ | ---------------------------------------------------------- |
-| `action`      | String | yes          | `"tap"` or `"set_text"`                                    |
-| `finder`      | String | yes          | `"byKey"`, `"byType"`, `"byText"`, or `"bySemanticsLabel"` |
-| `finderValue` | String | yes          | Value to match against the chosen finder                   |
-| `text`        | String | for set_text | Text to set; replaces the field's current content          |
+| Name          | Type   | Required     | Description                                                                      |
+| ------------- | ------ | ------------ | -------------------------------------------------------------------------------- |
+| `action`      | String | yes          | `"tap"` or `"set_text"`                                                          |
+| `finder`      | String | yes          | `"byKey"`, `"byType"`, `"byText"`, `"byTextContaining"`, or `"bySemanticsLabel"` |
+| `finderValue` | String | yes          | Value to match against the chosen finder                                         |
+| `text`        | String | for set_text | Text to set; replaces the field's current content                                |
 
 **Finder semantics:**
 
-| Finder             | Matches when                                                                                                          |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| `byKey`            | Widget has a `ValueKey<String>` equal to `finderValue`, or a `ValueKey<int>` whose `.toString()` equals `finderValue` |
-| `byType`           | `widget.runtimeType.toString() == finderValue` (e.g. `"ElevatedButton"`)                                              |
-| `byText`           | Widget is a `Text` and `Text.data == finderValue`                                                                     |
-| `bySemanticsLabel` | Widget is a `Semantics` and `properties.label == finderValue`                                                         |
+| Finder             | Matches when                                                                                                                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------- |
+| `byKey`            | Widget has a `ValueKey<String>` equal to `finderValue`, or a `ValueKey<int>` whose `.toString()` equals `finderValue`             |
+| `byType`           | `widget.runtimeType.toString() == finderValue` (e.g. `"ElevatedButton"`)                                                          |
+| `byText`           | Widget is a `Text` and `Text.data == finderValue`                                                                                 |
+| `byTextContaining` | Widget is a `Text` and `Text.data` contains `finderValue` as a substring (useful when displayed text is truncated) (since v1.2.0) |
+| `bySemanticsLabel` | Widget is a `Semantics` and `properties.label == finderValue`                                                                     |
 
 The tree is walked depth-first from the root; the first match is used.
 
@@ -322,38 +323,29 @@ ignored if omitted.
 
 ---
 
+## `ext.slipstream.clear_errors` (since v1.2.0)
+
+Clears the persistent `flutter.error` banner from the ghost overlay. Call after
+reading error output (e.g. after `get_output`) or after a hot reload to
+acknowledge accumulated errors.
+
+The banner is also cleared automatically on hot reload (via `State.reassemble`).
+
+**Parameters:** none
+
+**Returns:**
+
+```json
+{ "ok": true }
+```
+
+---
+
 ## Events
 
 Events are posted to the VM service `Extension` stream via
 `dart:developer.postEvent`. Clients subscribe with `streamListen('Extension')`
 and filter by `event.extensionKind`.
-
-### `ext.slipstream.windowResized`
-
-Fired whenever the window metrics change (resize, rotation, device pixel ratio
-change). Backed by `WidgetsBindingObserver.didChangeMetrics`.
-
-**Payload:**
-
-```json
-{
-  "viewId": 0,
-  "physicalWidth": 1170.0,
-  "physicalHeight": 2532.0,
-  "devicePixelRatio": 3.0,
-  "logicalWidth": 390.0,
-  "logicalHeight": 844.0
-}
-```
-
-<!-- prettier-ignore-start -->
-| Field | Type | Description |
-| ----- | ---- | ----------- |
-| `viewId` | int | Identifies the view that changed (relevant for multi-window apps) |
-| `physicalWidth` / `physicalHeight` | double | Dimensions in physical pixels |
-| `devicePixelRatio` | double | Physical pixels per logical pixel |
-| `logicalWidth` / `logicalHeight` | double | Dimensions in logical pixels (`physical / devicePixelRatio`) |
-<!-- prettier-ignore-end -->
 
 ### `ext.slipstream.routeChanged`
 

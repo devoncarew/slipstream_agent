@@ -45,6 +45,29 @@ class GhostOverlay {
 
   static bool _visible = true;
 
+  // Persistent error state — source of truth; the widget state mirrors this.
+  static int _errorCount = 0;
+  static String? _errorSummary;
+
+  /// Records a new `flutter.error` event and shows the persistent error banner.
+  ///
+  /// The banner displays a running count and the most recent [summary]. Call
+  /// [clearErrors] to dismiss it (e.g. after the agent has read the logs or
+  /// after a hot reload).
+  static void showError(String summary) {
+    _errorCount++;
+    _errorSummary = summary;
+    _key.currentState?.syncErrorBanner();
+    _ensureInstalled();
+  }
+
+  /// Clears the persistent error banner.
+  static void clearErrors() {
+    _errorCount = 0;
+    _errorSummary = null;
+    _key.currentState?.syncErrorBanner();
+  }
+
   /// Installs the ghost overlay and permanently disables the Flutter debug
   /// banner for the life of the Slipstream session.
   ///
@@ -140,11 +163,16 @@ class GhostOverlay {
 
   static void _flushPending() {
     final state = _key.currentState;
-    if (state == null || _pending.isEmpty) return;
-    for (final entry in _pending) {
-      state.addLogMessage(entry);
+    if (state == null) return;
+    if (_pending.isNotEmpty) {
+      for (final entry in _pending) {
+        state.addLogMessage(entry);
+      }
+      _pending.clear();
     }
-    _pending.clear();
+    if (_errorCount > 0) {
+      state.syncErrorBanner();
+    }
   }
 
   static OverlayState? _findOverlay() {
@@ -231,6 +259,133 @@ class _LogMessage {
 }
 
 // ---------------------------------------------------------------------------
+// Shared chip constants and decorations
+
+const Duration _chipAnimDuration = Duration(milliseconds: 280);
+
+const TextStyle _chipTextStyle = TextStyle(
+  color: Color(0xFFFFFFFF),
+  fontSize: 12 * 0.85,
+  fontWeight: FontWeight.w900,
+  decoration: TextDecoration.none,
+);
+
+const List<BoxShadow> _chipBoxShadow = [
+  BoxShadow(
+    color: Color(0x55000000),
+    blurRadius: 6,
+    offset: Offset(0, 2),
+  ),
+];
+
+const Color _errorColor = Color(0xFFB71C1C);
+
+final BoxDecoration _errorChipDecoration = BoxDecoration(
+  color: _errorColor,
+  borderRadius: BorderRadius.circular(6),
+  boxShadow: _chipBoxShadow,
+);
+
+final BoxDecoration _logChipDecoration = BoxDecoration(
+  gradient: LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color.alphaBlend(const Color(0x28FFFFFF), ghostOverlayColor),
+      ghostOverlayColor,
+    ],
+  ),
+  borderRadius: BorderRadius.circular(6),
+  boxShadow: _chipBoxShadow,
+);
+
+// ---------------------------------------------------------------------------
+// Shared slide animation mixin
+
+/// Slide-in/slide-out animation shared by [_EntryChipState] and
+/// [_ErrorBannerState].
+///
+/// Call [initSlideAnimations] in [State.initState] and
+/// [disposeSlideAnimations] in [State.dispose]. [triggerExit] plays the exit
+/// animation and then calls [_onExitComplete]. [buildSliding] wraps a child in
+/// the combined translation.
+mixin _SlidingChipMixin<T extends StatefulWidget>
+    on State<T>, TickerProviderStateMixin<T> {
+  late final AnimationController _enterController;
+  late final AnimationController _exitController;
+  late final Animation<Offset> _enterSlide;
+  late final Animation<Offset> _exitSlide;
+
+  void initSlideAnimations({bool fromTop = false}) {
+    _enterController =
+        AnimationController(vsync: this, duration: _chipAnimDuration)
+          ..forward();
+    _exitController =
+        AnimationController(vsync: this, duration: _chipAnimDuration);
+
+    final enterBegin = fromTop ? const Offset(0, -0.1) : const Offset(0, 0.1);
+    final exitEnd = fromTop ? const Offset(0, -0.1) : const Offset(0, 0.1);
+
+    _enterSlide = Tween<Offset>(begin: enterBegin, end: Offset.zero).animate(
+        CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
+    _exitSlide = Tween<Offset>(begin: Offset.zero, end: exitEnd).animate(
+        CurvedAnimation(parent: _exitController, curve: Curves.easeIn));
+  }
+
+  void disposeSlideAnimations() {
+    _enterController.dispose();
+    _exitController.dispose();
+  }
+
+  void triggerExit() {
+    if (!mounted) return;
+    if (_exitController.isAnimating || _exitController.isCompleted) return;
+    _exitController.forward().then((_) {
+      if (mounted) _onExitComplete();
+    });
+  }
+
+  void _onExitComplete();
+
+  Widget buildSliding({required Widget child}) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_enterController, _exitController]),
+      builder: (context, innerChild) {
+        final screenH = MediaQuery.sizeOf(context).height;
+        final dy = (_enterSlide.value.dy + _exitSlide.value.dy) * screenH;
+        return Transform.translate(offset: Offset(0, dy), child: innerChild);
+      },
+      child: child,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Shared chip container
+
+/// Shared container for command-log and error chips: a [DecoratedBox] with
+/// standard horizontal/vertical padding.
+class _ChipBox extends StatelessWidget {
+  const _ChipBox({
+    required this.decoration,
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+  });
+
+  final BoxDecoration decoration;
+  final Widget child;
+  final EdgeInsets padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: decoration,
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Ghost overlay state
 
 class _GhostOverlayState extends State<_GhostOverlayWidget> {
@@ -239,6 +394,42 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   final List<Timer> _timers = [];
 
   bool _visible = true;
+
+  // Persistent error display — mirrors GhostOverlay._errorCount/Summary.
+  final GlobalKey<_ErrorBannerState> _errorBannerKey = GlobalKey();
+  bool _showErrorBanner = false;
+  int _errorCount = 0;
+  String? _errorSummary;
+
+  void syncErrorBanner() {
+    if (!mounted) return;
+
+    if (GhostOverlay._errorCount > 0) {
+      // Defer setState — FlutterError.onError fires during layout/paint
+      // (e.g. overflow errors), and setState is illegal during a frame.
+      // Reading from GhostOverlay statics in the callback captures the latest
+      // value even if multiple errors arrive in the same frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _errorCount = GhostOverlay._errorCount;
+          _errorSummary = GhostOverlay._errorSummary;
+          _showErrorBanner = true;
+        });
+      });
+    } else {
+      _errorBannerKey.currentState?.triggerExit();
+    }
+  }
+
+  void _onErrorBannerExited() {
+    if (!mounted) return;
+    setState(() {
+      _showErrorBanner = false;
+      _errorCount = 0;
+      _errorSummary = '';
+    });
+  }
 
   // Trigger counters and data for the three visualization sub-widgets.
   // Incrementing a counter causes the corresponding widget to start its
@@ -265,6 +456,13 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
         _chipKeys.clear();
         _outlineRect = null;
         _semanticsRects = const [];
+        _showErrorBanner = false;
+        _errorCount = 0;
+        _errorSummary = '';
+      } else {
+        _errorCount = GhostOverlay._errorCount;
+        _errorSummary = GhostOverlay._errorSummary;
+        _showErrorBanner = _errorCount > 0;
       }
     });
   }
@@ -364,6 +562,13 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    // Hot reload — clear accumulated errors so the banner resets cleanly.
+    GhostOverlay.clearErrors();
+  }
+
+  @override
   void dispose() {
     for (final t in _timers) {
       t.cancel();
@@ -371,11 +576,59 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
     super.dispose();
   }
 
+  Widget _buildBannerPainter() {
+    return Positioned.fill(
+      child: CustomPaint(
+        painter: BannerPainter(
+          message: 'slipstream',
+          textDirection: TextDirection.ltr,
+          layoutDirection: TextDirection.ltr,
+          location: BannerLocation.topEnd,
+          color: ghostOverlayColor,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorBanner(double topInset) {
+    return Positioned(
+      top: topInset + 16,
+      left: 12,
+      right: 12,
+      child: _ErrorBanner(
+        key: _errorBannerKey,
+        count: _errorCount,
+        summary: _errorSummary,
+        onExited: _onErrorBannerExited,
+      ),
+    );
+  }
+
+  Widget _buildChips(double bottomInset) {
+    return Positioned(
+      bottom: bottomInset + 36,
+      left: 12,
+      right: 12,
+      child: Stack(
+        alignment: Alignment.center,
+        clipBehavior: Clip.none,
+        children: [
+          for (final entry in _entries)
+            _EntryChip(
+              key: _chipKeys[entry.id],
+              entry: entry,
+              onExited: () => _onChipExited(entry),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!_visible) return const SizedBox.shrink();
 
-    final bottomInset = MediaQuery.maybePaddingOf(context)?.bottom ?? 0.0;
+    final padding = MediaQuery.maybePaddingOf(context) ?? EdgeInsets.zero;
 
     return IgnorePointer(
       child: Stack(
@@ -395,37 +648,12 @@ class _GhostOverlayState extends State<_GhostOverlayWidget> {
           _SemanticsOverlay(
               rects: _semanticsRects, triggerCount: _semanticsCount),
           // Slipstream banner — replaces the Flutter debug banner.
-          Positioned.fill(
-            child: CustomPaint(
-              painter: BannerPainter(
-                message: 'slipstream',
-                textDirection: TextDirection.ltr,
-                layoutDirection: TextDirection.ltr,
-                location: BannerLocation.topEnd,
-                color: ghostOverlayColor,
-              ),
-            ),
-          ),
+          _buildBannerPainter(),
+          // Persistent error banner near the top of the screen.
+          if (_showErrorBanner) _buildErrorBanner(padding.top),
           // Command-log chips — share the same space; newer chips are
           // painted in front of older ones.
-          if (_entries.isNotEmpty)
-            Positioned(
-              bottom: bottomInset + 36,
-              left: 12,
-              right: 12,
-              child: Stack(
-                alignment: Alignment.center,
-                clipBehavior: Clip.none,
-                children: [
-                  for (final entry in _entries)
-                    _EntryChip(
-                      key: _chipKeys[entry.id],
-                      entry: entry,
-                      onExited: () => _onChipExited(entry),
-                    ),
-                ],
-              ),
-            ),
+          if (_entries.isNotEmpty) _buildChips(padding.bottom),
         ],
       ),
     );
@@ -699,6 +927,98 @@ class _SemanticsNodeWidget extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Persistent error banner
+
+class _ErrorBanner extends StatefulWidget {
+  const _ErrorBanner({
+    super.key,
+    required this.count,
+    required this.summary,
+    required this.onExited,
+  });
+
+  final int count;
+  final String? summary;
+  final VoidCallback onExited;
+
+  @override
+  State<_ErrorBanner> createState() => _ErrorBannerState();
+}
+
+class _ErrorBannerState extends State<_ErrorBanner>
+    with TickerProviderStateMixin, _SlidingChipMixin<_ErrorBanner> {
+  @override
+  void initState() {
+    super.initState();
+    initSlideAnimations(fromTop: true);
+  }
+
+  @override
+  void _onExitComplete() => widget.onExited();
+
+  @override
+  void dispose() {
+    disposeSlideAnimations();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final errorDesc = widget.summary == null
+        ? 'flutter.error'
+        : 'flutter.error: ${widget.summary}';
+
+    return buildSliding(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // error count badge — circular for single digits, pill for larger
+          Container(
+            decoration: BoxDecoration(
+              color: _errorColor,
+              borderRadius: BorderRadius.circular(50),
+              boxShadow: _chipBoxShadow,
+            ),
+            constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+            padding:
+                const EdgeInsets.only(left: 5, right: 5, top: 1, bottom: 3),
+            alignment: Alignment.center,
+            child: Text('${widget.count}', style: _chipTextStyle),
+          ),
+
+          const SizedBox(width: 4),
+
+          // error icon and message — Flexible so text truncates if needed
+          Flexible(
+            child: _ChipBox(
+              decoration: _errorChipDecoration,
+              padding:
+                  const EdgeInsets.only(left: 8, right: 8, top: 1, bottom: 3),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.error_outline,
+                      size: 11, color: Color(0xFFFFFFFF)),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      errorDesc,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: _chipTextStyle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Command-log chip
 
 class _EntryChip extends StatefulWidget {
@@ -711,47 +1031,20 @@ class _EntryChip extends StatefulWidget {
   State<_EntryChip> createState() => _EntryChipState();
 }
 
-class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
-  static const Duration _animDuration = Duration(milliseconds: 280);
-
-  late final AnimationController _enterController;
-  late final AnimationController _exitController;
-  late final Animation<Offset> _enterSlide;
-  late final Animation<Offset> _exitSlide;
-
+class _EntryChipState extends State<_EntryChip>
+    with TickerProviderStateMixin, _SlidingChipMixin<_EntryChip> {
   @override
   void initState() {
     super.initState();
-
-    _enterController = AnimationController(vsync: this, duration: _animDuration)
-      ..forward();
-    _exitController = AnimationController(vsync: this, duration: _animDuration);
-
-    // Values are fractions of the screen height (0.1 = 10% of screen height).
-    _enterSlide = Tween<Offset>(
-      begin: const Offset(0, 0.1),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
-
-    _exitSlide = Tween<Offset>(
-      begin: Offset.zero,
-      end: const Offset(0, 0.1),
-    ).animate(CurvedAnimation(parent: _exitController, curve: Curves.easeIn));
-  }
-
-  /// Plays the exit animation then calls [_EntryChip.onExited].
-  void triggerExit() {
-    if (!mounted) return;
-    if (_exitController.isAnimating || _exitController.isCompleted) return;
-    _exitController.forward().then((_) {
-      if (mounted) widget.onExited();
-    });
+    initSlideAnimations();
   }
 
   @override
+  void _onExitComplete() => widget.onExited();
+
+  @override
   void dispose() {
-    _enterController.dispose();
-    _exitController.dispose();
+    disposeSlideAnimations();
     super.dispose();
   }
 
@@ -770,54 +1063,23 @@ class _EntryChipState extends State<_EntryChip> with TickerProviderStateMixin {
         : widget.entry.command;
     final icon = _iconForKind(widget.entry.kind);
 
-    return AnimatedBuilder(
-      animation: Listenable.merge([_enterController, _exitController]),
-      builder: (context, child) {
-        final screenH = MediaQuery.sizeOf(context).height;
-        final dy = (_enterSlide.value.dy + _exitSlide.value.dy) * screenH;
-        return Transform.translate(offset: Offset(0, dy), child: child);
-      },
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color.alphaBlend(const Color(0x28FFFFFF), ghostOverlayColor),
-              ghostOverlayColor,
+    return buildSliding(
+      child: _ChipBox(
+        decoration: _logChipDecoration,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 11, color: const Color(0xFFFFFFFF)),
+              const SizedBox(width: 4),
             ],
-          ),
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x55000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _chipTextStyle,
             ),
           ],
-        ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (icon != null) ...[
-                Icon(icon, size: 11, color: const Color(0xFFFFFFFF)),
-                const SizedBox(width: 4),
-              ],
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFFFFFFF),
-                  fontSize: 12 * 0.85,
-                  fontWeight: FontWeight.w900,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
