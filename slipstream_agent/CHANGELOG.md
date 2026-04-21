@@ -1,4 +1,4 @@
-## 1.2.1-wip
+## 1.2.1
 
 - Fix `scroll_until_visible` for lazy/virtual lists: the target finder is now
   re-evaluated after each scroll step so that `ListView.builder` items are
