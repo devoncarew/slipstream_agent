@@ -1,5 +1,10 @@
 ## 1.2.1-wip
 
+- Fix `scroll_until_visible` for lazy/virtual lists: the target finder is now
+  re-evaluated after each scroll step so that `ListView.builder` items are
+  discovered as they enter the render tree. Previously the element was looked up
+  once before scrolling began, causing the action to fail immediately for any
+  item not yet built.
 - For the 'scroll: xx px' toast, display the scroll rounded to the nearest int.
 
 ## 1.2.0

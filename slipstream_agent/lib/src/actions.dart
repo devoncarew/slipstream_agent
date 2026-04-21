@@ -3,6 +3,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'finder.dart';
+
 /// Synthesizes a tap at the center of [element]'s render box.
 ///
 /// Returns null on success, or an error message on failure. The tap is
@@ -88,13 +90,15 @@ Future<String?> scrollElement(
   return null;
 }
 
-/// Scrolls the [Scrollable] at [scrollElement] until [targetElement] is
-/// visible in the viewport.
+/// Scrolls the [Scrollable] at [scrollableElement] until the widget matched by
+/// [targetFinder]/[targetFinderValue] is visible in the viewport.
 ///
-/// Both elements must be located in the tree before calling this. Returns null
-/// on success, or an error message on failure.
+/// The finder is re-evaluated after each scroll step so that lazily-built
+/// widgets (e.g. [ListView.builder] items) are discovered as they enter the
+/// render tree. Returns null on success, or an error message on failure.
 Future<String?> scrollUntilVisible({
-  required Element targetElement,
+  required String targetFinder,
+  required String targetFinderValue,
   required Element scrollableElement,
 }) async {
   final ScrollableState? scrollState = _findScrollableState(scrollableElement);
@@ -107,27 +111,28 @@ Future<String?> scrollUntilVisible({
   const double stepPixels = 200.0;
 
   for (var i = 0; i < maxSteps; i++) {
-    // Check if target is now visible.
-    final RenderBox? targetBox = _findRenderBox(targetElement);
-    if (targetBox != null && targetBox.hasSize) {
-      final RenderAbstractViewport? viewport =
-          RenderAbstractViewport.maybeOf(targetBox);
-      if (viewport != null) {
-        final RevealedOffset revealed =
-            viewport.getOffsetToReveal(targetBox, 0.5);
-        final double current = scrollState.position.pixels;
-        final double target = revealed.offset;
-        if ((current - target).abs() < 1.0) break; // already visible
-        scrollState.position.jumpTo(
-          target.clamp(
-            scrollState.position.minScrollExtent,
-            scrollState.position.maxScrollExtent,
-          ),
-        );
-        break;
+    // Re-search on every iteration: lazy lists build new elements as we scroll.
+    final targetElement =
+        findElement(finder: targetFinder, value: targetFinderValue);
+    if (targetElement != null) {
+      final RenderBox? targetBox = _findRenderBox(targetElement);
+      if (targetBox != null && targetBox.hasSize) {
+        final RenderAbstractViewport? viewport =
+            RenderAbstractViewport.maybeOf(targetBox);
+        if (viewport != null) {
+          final RevealedOffset revealed =
+              viewport.getOffsetToReveal(targetBox, 0.5);
+          scrollState.position.jumpTo(
+            revealed.offset.clamp(
+              scrollState.position.minScrollExtent,
+              scrollState.position.maxScrollExtent,
+            ),
+          );
+          return null; // found and revealed
+        }
       }
     }
-    // Target not yet laid out or no viewport — scroll down a step and retry.
+    // Target not yet in the tree or not laid out — scroll a step and retry.
     final double next = (scrollState.position.pixels + stepPixels).clamp(
       scrollState.position.minScrollExtent,
       scrollState.position.maxScrollExtent,
@@ -138,7 +143,7 @@ Future<String?> scrollUntilVisible({
     await SchedulerBinding.instance.endOfFrame;
   }
 
-  return null;
+  return 'scroll_until_visible: "$targetFinderValue" not found after scrolling';
 }
 
 /// Finds the first [ScrollableState] at or below [element].
