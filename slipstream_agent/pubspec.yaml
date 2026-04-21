@@ -1,6 +1,6 @@
 name: slipstream_agent
 # Keep this version in-sync with lib/src/version.dart.
-version: 1.2.0
+version: 1.2.1
 description: An in-process companion for the Flutter Slipstream agent tools.
 
 repository: https://github.com/devoncarew/slipstream_agent/tree/main/slipstream_agent

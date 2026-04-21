@@ -259,8 +259,13 @@ class _PerformActionExtension extends AgentExtension {
     final String? scrollFinder = parameters.asString('scrollFinder');
     final String? scrollFinderValue = parameters.asString('scrollFinderValue');
 
-    final element = findElement(finder: finder, value: finderValue);
-    if (element == null) {
+    // For scroll_until_visible the target may not be in the tree yet (lazy
+    // list), so we defer the lookup to scrollUntilVisible itself. All other
+    // actions require the element to be present up front.
+    final element = action == 'scroll_until_visible'
+        ? null
+        : findElement(finder: finder, value: finderValue);
+    if (element == null && action != 'scroll_until_visible') {
       return {
         'ok': false,
         'error': 'interact: no element found for finder="$finder" '
@@ -277,7 +282,7 @@ class _PerformActionExtension extends AgentExtension {
             finder: finder,
             finderValue: finderValue,
             viz: 'outline');
-        error = await tapElement(element);
+        error = await tapElement(element!);
       case 'set_text':
         if (text == null) {
           error = 'interact: "text" is required for the set_text action';
@@ -288,7 +293,7 @@ class _PerformActionExtension extends AgentExtension {
               finder: finder,
               finderValue: finderValue,
               viz: 'outline');
-          error = setTextInElement(element, text);
+          error = setTextInElement(element!, text);
         }
       case 'scroll':
         if (direction == null) {
@@ -297,13 +302,13 @@ class _PerformActionExtension extends AgentExtension {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
           GhostOverlay.log('scroll',
-              details: '$direction ${pixels}px',
+              details: '$direction ${pixels.round()}px',
               kind: 'interact',
               finder: finder,
               finderValue: finderValue,
               viz: 'outline');
           error = await scrollElement(
-            element,
+            element!,
             direction: direction,
             pixels: pixels,
           );
@@ -330,7 +335,8 @@ class _PerformActionExtension extends AgentExtension {
                 finderValue: finderValue,
                 viz: 'outline');
             error = await scrollUntilVisible(
-              targetElement: element,
+              targetFinder: finder,
+              targetFinderValue: finderValue,
               scrollableElement: scrollable,
             );
           }
