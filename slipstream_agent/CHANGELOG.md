@@ -1,3 +1,7 @@
+## 1.2.1-wip
+
+- For the 'scroll: xx px' toast, display the scroll rounded to the nearest int.
+
 ## 1.2.0
 
 - `ext.slipstream.perform_action` and `ext.slipstream.navigate` now wait for the

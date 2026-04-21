@@ -297,7 +297,7 @@ class _PerformActionExtension extends AgentExtension {
           error = 'interact: "pixels" is required for the scroll action';
         } else {
           GhostOverlay.log('scroll',
-              details: '$direction ${pixels}px',
+              details: '$direction ${pixels.round()}px',
               kind: 'interact',
               finder: finder,
               finderValue: finderValue,
