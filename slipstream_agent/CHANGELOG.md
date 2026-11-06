@@ -1,3 +1,8 @@
+## 1.2.2-wip
+
+- README: documented using the agent from a custom entrypoint such as a
+  `flutter_driver` harness.
+
 ## 1.2.1
 
 - Fix `scroll_until_visible` for lazy/virtual lists: the target finder is now

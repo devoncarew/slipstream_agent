@@ -75,6 +75,20 @@ void main() {
 `GoRouterAdapter` has no compile-time dependency on `go_router` — the router
 instance is accepted as `dynamic`.
 
+### With a custom entrypoint (e.g. `flutter_driver`)
+
+Call `init()` before `enableFlutterDriverExtension()`, and disable text-entry
+emulation so the real keyboard works. With Flutter Slipstream, launch it via
+`run_app(target: "lib/main_driver.dart")`.
+
+```dart
+void main() {
+  SlipstreamAgent.init();
+  enableFlutterDriverExtension(enableTextEntryEmulation: false);
+  app.main();
+}
+```
+
 ## How it works
 
 When Slipstream connects to your app, it calls `ext.slipstream.ping`. If the
